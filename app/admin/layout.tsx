@@ -24,9 +24,7 @@ export default async function Layout({
     .eq('id', user.id)
     .single()
 
-  console.log('USER ID:', user.id)
-  console.log('PROFILE:', profile)
-  console.log('PROFILE ERROR:', profileError)
+
 
   if (profileError || !profile?.is_admin) {
     redirect('/')
@@ -38,11 +36,12 @@ export default async function Layout({
         <div className="mb-4 font-black">ADMIN</div>
 
         {[
-          ['/admin', 'Dashboard'],
-          ['/admin/kampe', 'Kampe'],
-          ['/admin/ordrer', 'Ordrer'],
-          ['/admin/meddelelser', 'Meddelelser'],
-        ].map(([href, label]) => (
+  ['/admin', 'Dashboard'],
+  ['/admin/kampe', 'Kampe'],
+  ['/admin/spillere', 'Spillere'],
+  ['/admin/ordrer', 'Ordrer'],
+  ['/admin/meddelelser', 'Meddelelser'],
+].map(([href, label]) => (
           <Link
             className="block rounded-xl px-3 py-2 text-sm hover:bg-white/5"
             key={href}
