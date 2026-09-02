@@ -1,0 +1,1 @@
+export default function Page(){return <div><h1 className="mb-6 text-4xl font-black">Statistik</h1><div className="card p-8 text-neutral-400">Ingen statistik registreret endnu. Statistikken kan kobles automatisk til kampbegivenheder, når de første resultater registreres.</div></div>}
