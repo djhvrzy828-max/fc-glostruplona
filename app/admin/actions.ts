@@ -28,19 +28,105 @@ async function admin() {
   return { s, user }
 }
 
-export async function createMatch(fd: FormData) {
+async function syncMatchScore(
+  s: Awaited<ReturnType<typeof createServerSupabase>>,
+  matchId: string
+) {
+  const {
+    data: goals,
+    error: goalsError,
+  } = await s
+    .from('match_events')
+    .select('team')
+    .eq('match_id', matchId)
+    .eq('event_type', 'goal')
+
+  if (goalsError) {
+    console.error(
+      'SYNC SCORE GOALS ERROR:',
+      goalsError
+    )
+
+    throw new Error(
+      'Kunne ikke beregne kampens score'
+    )
+  }
+
+  const homeScore =
+    goals?.filter(
+      (goal: any) =>
+        goal.team === 'home'
+    ).length || 0
+
+  const awayScore =
+    goals?.filter(
+      (goal: any) =>
+        goal.team === 'away'
+    ).length || 0
+
+  const { error: scoreError } = await s
+    .from('matches')
+    .update({
+      home_score: homeScore,
+      away_score: awayScore,
+    })
+    .eq('id', matchId)
+
+  if (scoreError) {
+    console.error(
+      'SYNC SCORE ERROR:',
+      scoreError
+    )
+
+    throw new Error(
+      'Kunne ikke synkronisere kampens score'
+    )
+  }
+
+  return {
+    homeScore,
+    awayScore,
+  }
+}
+
+export async function createMatch(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
   const row = {
-    home_team: String(fd.get('home_team')),
-    away_team: String(fd.get('away_team')),
-    date: String(fd.get('date') || '') || null,
-    kickoff_time: String(fd.get('kickoff_time') || '') || null,
-    stadium: String(fd.get('stadium') || '') || null,
-    competition: String(
-      fd.get('competition') || '9. divisionen'
+    home_team: String(
+      fd.get('home_team')
     ),
-    status: String(fd.get('status') || 'Kommende'),
+
+    away_team: String(
+      fd.get('away_team')
+    ),
+
+    date:
+      String(
+        fd.get('date') || ''
+      ) || null,
+
+    kickoff_time:
+      String(
+        fd.get('kickoff_time') || ''
+      ) || null,
+
+    stadium:
+      String(
+        fd.get('stadium') || ''
+      ) || null,
+
+    competition: String(
+      fd.get('competition') ||
+        '9. divisionen'
+    ),
+
+    status: String(
+      fd.get('status') ||
+        'Kommende'
+    ),
   }
 
   const { error } = await s
@@ -51,26 +137,49 @@ export async function createMatch(fd: FormData) {
     throw error
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action: `Oprettede kamp ${row.home_team} vs ${row.away_team}`,
-  })
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+
+      action:
+        `Oprettede kamp ${row.home_team} vs ${row.away_team}`,
+    })
 
   revalidatePath('/')
   revalidatePath('/kampe')
   revalidatePath('/admin/kampe')
 }
 
-export async function updateMatch(fd: FormData) {
+export async function updateMatch(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
-  const id = String(fd.get('id'))
+  const id = String(
+    fd.get('id')
+  )
 
   const row = {
-    date: String(fd.get('date') || '') || null,
-    kickoff_time: String(fd.get('kickoff_time') || '') || null,
-    stadium: String(fd.get('stadium') || '') || null,
-    status: String(fd.get('status') || 'Kommende'),
+    date:
+      String(
+        fd.get('date') || ''
+      ) || null,
+
+    kickoff_time:
+      String(
+        fd.get('kickoff_time') || ''
+      ) || null,
+
+    stadium:
+      String(
+        fd.get('stadium') || ''
+      ) || null,
+
+    status: String(
+      fd.get('status') ||
+        'Kommende'
+    ),
   }
 
   const { error } = await s
@@ -89,26 +198,40 @@ export async function updateMatch(fd: FormData) {
     )
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action: `Redigerede kamp ${id}`,
-  })
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+      action:
+        `Redigerede kamp ${id}`,
+    })
 
   revalidatePath('/')
   revalidatePath('/kampe')
   revalidatePath('/admin/kampe')
+  revalidatePath(
+    `/kampe/${id}`
+  )
 }
 
-export async function updateOrder(fd: FormData) {
+export async function updateOrder(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
-  const id = String(fd.get('id'))
-  const status = String(fd.get('status'))
+  const id = String(
+    fd.get('id')
+  )
+
+  const status = String(
+    fd.get('status')
+  )
 
   const { error } = await s
     .from('orders')
     .update({
       order_status: status,
+
       payment_status:
         status === 'Betalt'
           ? 'Betalt'
@@ -120,13 +243,18 @@ export async function updateOrder(fd: FormData) {
     throw error
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action:
-      `Ændrede ordre ${id} til ${status}`,
-  })
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
 
-  revalidatePath('/admin/ordrer')
+      action:
+        `Ændrede ordre ${id} til ${status}`,
+    })
+
+  revalidatePath(
+    '/admin/ordrer'
+  )
 }
 
 export async function createAnnouncement(
@@ -135,11 +263,19 @@ export async function createAnnouncement(
   const { s, user } = await admin()
 
   const row = {
-    title: String(fd.get('title')),
-    body: String(fd.get('body')),
-    type: String(
-      fd.get('type') || 'Information'
+    title: String(
+      fd.get('title')
     ),
+
+    body: String(
+      fd.get('body')
+    ),
+
+    type: String(
+      fd.get('type') ||
+        'Information'
+    ),
+
     active: true,
   }
 
@@ -151,13 +287,17 @@ export async function createAnnouncement(
     throw error
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action:
-      `Oprettede meddelelse: ${row.title}`,
-  })
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+
+      action:
+        `Oprettede meddelelse: ${row.title}`,
+    })
 
   revalidatePath('/')
+
   revalidatePath(
     '/admin/meddelelser'
   )
@@ -184,13 +324,20 @@ export async function createPlayer(
     fd.get('shirt_number')
   )
 
-  if (!first_name || !last_name) {
+  if (
+    !first_name ||
+    !last_name
+  ) {
     throw new Error(
       'Spilleren skal have fornavn og efternavn'
     )
   }
 
-  if (!Number.isInteger(shirt_number)) {
+  if (
+    !Number.isInteger(
+      shirt_number
+    )
+  ) {
     throw new Error(
       'Trøjenummer skal være et tal'
     )
@@ -201,9 +348,12 @@ export async function createPlayer(
     .insert({
       first_name,
       last_name,
+
       position:
         position || null,
+
       shirt_number,
+
       active: true,
     })
 
@@ -218,13 +368,17 @@ export async function createPlayer(
     )
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action:
-      `Oprettede spiller ${first_name} ${last_name} #${shirt_number}`,
-  })
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+
+      action:
+        `Oprettede spiller ${first_name} ${last_name} #${shirt_number}`,
+    })
 
   revalidatePath('/trup')
+
   revalidatePath(
     '/admin/spillere'
   )
@@ -235,7 +389,9 @@ export async function updatePlayer(
 ) {
   const { s, user } = await admin()
 
-  const id = String(fd.get('id'))
+  const id = String(
+    fd.get('id')
+  )
 
   const first_name = String(
     fd.get('first_name') || ''
@@ -258,8 +414,10 @@ export async function updatePlayer(
     .update({
       first_name,
       last_name,
+
       position:
         position || null,
+
       shirt_number,
     })
     .eq('id', id)
@@ -275,13 +433,17 @@ export async function updatePlayer(
     )
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action:
-      `Redigerede spiller ${first_name} ${last_name}`,
-  })
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+
+      action:
+        `Redigerede spiller ${first_name} ${last_name}`,
+    })
 
   revalidatePath('/trup')
+
   revalidatePath(
     '/admin/spillere'
   )
@@ -292,7 +454,9 @@ export async function removePlayer(
 ) {
   const { s, user } = await admin()
 
-  const id = String(fd.get('id'))
+  const id = String(
+    fd.get('id')
+  )
 
   const { data: player } = await s
     .from('players')
@@ -320,13 +484,17 @@ export async function removePlayer(
     )
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action:
-      `Fjernede spiller ${player?.first_name || ''} ${player?.last_name || ''} fra truppen`,
-  })
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+
+      action:
+        `Fjernede spiller ${player?.first_name || ''} ${player?.last_name || ''} fra truppen`,
+    })
 
   revalidatePath('/trup')
+
   revalidatePath(
     '/admin/spillere'
   )
@@ -337,7 +505,9 @@ export async function updateLiveScore(
 ) {
   const { s, user } = await admin()
 
-  const id = String(fd.get('id'))
+  const id = String(
+    fd.get('id')
+  )
 
   const home_score = Number(
     fd.get('home_score')
@@ -366,17 +536,19 @@ export async function updateLiveScore(
     )
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action:
-      `Opdaterede stillingen i kamp ${id} til ${home_score}-${away_score}`,
-  })
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+
+      action:
+        `Opdaterede stillingen i kamp ${id} til ${home_score}-${away_score}`,
+    })
 
   revalidatePath('/')
-  revalidatePath(
-    '/admin/kampe'
-  )
+  revalidatePath('/admin/kampe')
   revalidatePath('/kampe')
+
   revalidatePath(
     `/kampe/${id}`
   )
@@ -425,10 +597,13 @@ export async function createMatchEvent(
     match_id,
     event_type,
     team,
+
     player_id:
       player_id || null,
+
     assist_player_id:
       assist_player_id || null,
+
     minute,
   }
 
@@ -452,13 +627,35 @@ export async function createMatchEvent(
     )
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action:
-      `Registrerede ${event_type} i kamp ${match_id} (${minute}')`,
-  })
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
 
-  if (event_type === 'goal') {
+      action:
+        `Registrerede ${event_type} i kamp ${match_id} (${minute}')`,
+    })
+
+  let syncedScore:
+    | {
+        homeScore: number
+        awayScore: number
+      }
+    | undefined
+
+  if (
+    event_type === 'goal'
+  ) {
+    syncedScore =
+      await syncMatchScore(
+        s,
+        match_id
+      )
+  }
+
+  if (
+    event_type === 'goal'
+  ) {
     try {
       const {
         data: match,
@@ -468,7 +665,10 @@ export async function createMatchEvent(
         .select(
           'id, home_team, away_team'
         )
-        .eq('id', match_id)
+        .eq(
+          'id',
+          match_id
+        )
         .single()
 
       if (matchError) {
@@ -477,40 +677,6 @@ export async function createMatchEvent(
           matchError
         )
       }
-
-      const {
-        data: goals,
-        error: goalsError,
-      } = await s
-        .from('match_events')
-        .select('team')
-        .eq(
-          'match_id',
-          match_id
-        )
-        .eq(
-          'event_type',
-          'goal'
-        )
-
-      if (goalsError) {
-        console.error(
-          'PUSH GOALS ERROR:',
-          goalsError
-        )
-      }
-
-      const homeScore =
-        goals?.filter(
-          (goal: any) =>
-            goal.team === 'home'
-        ).length || 0
-
-      const awayScore =
-        goals?.filter(
-          (goal: any) =>
-            goal.team === 'away'
-        ).length || 0
 
       let scorerName = ''
 
@@ -548,11 +714,22 @@ export async function createMatchEvent(
             ? match.home_team
             : match.away_team
 
-        const scoringForFCG =
+        const normalizedTeam =
           scoringTeam
             .trim()
-            .toLowerCase() ===
+            .toLowerCase()
+
+        const scoringForFCG =
+          normalizedTeam ===
           'fc glostruplona'
+
+        const homeScore =
+          syncedScore
+            ?.homeScore ?? 0
+
+        const awayScore =
+          syncedScore
+            ?.awayScore ?? 0
 
         const scoreText =
           `${match.home_team} ${homeScore}–${awayScore} ${match.away_team}`
@@ -568,32 +745,47 @@ export async function createMatchEvent(
             ? `${scorerName} scorer! ${scoreText} • ${minute}'`
             : `${scoreText} • ${minute}'`
 
-        await sendPushToAll({
-          title,
-          body,
-          url:
-            `/kampe/${match_id}`,
-        })
+        try {
+          await sendPushToAll({
+            title,
+            body,
 
-        if (createdEvent?.id) {
-          console.log(
-            `Push sendt for mål-event ${createdEvent.id}`
+            url:
+              `/kampe/${match_id}`,
+          })
+
+          if (
+            createdEvent?.id
+          ) {
+            console.log(
+              `Push sendt for mål-event ${createdEvent.id}`
+            )
+          }
+        } catch (
+          pushError
+        ) {
+          console.error(
+            'GOAL PUSH ERROR:',
+            pushError
           )
         }
       }
-    } catch (pushError) {
+    } catch (
+      pushSetupError
+    ) {
       console.error(
-        'GOAL PUSH ERROR:',
-        pushError
+        'GOAL PUSH SETUP ERROR:',
+        pushSetupError
       )
     }
   }
 
   revalidatePath('/')
-  revalidatePath(
-    '/admin/kampe'
-  )
+  revalidatePath('/admin/kampe')
   revalidatePath('/kampe')
+  revalidatePath('/statistik')
+  revalidatePath('/trup')
+
   revalidatePath(
     `/kampe/${match_id}`
   )
@@ -644,16 +836,20 @@ export async function updateMatchEvent(
     )
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action:
-      `Ændrede kamphændelse ${id} til minut ${minute}`,
-  })
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
 
-  revalidatePath(
-    '/admin/kampe'
-  )
+      action:
+        `Ændrede kamphændelse ${id} til minut ${minute}`,
+    })
+
+  revalidatePath('/admin/kampe')
   revalidatePath('/kampe')
+  revalidatePath('/statistik')
+  revalidatePath('/trup')
+
   revalidatePath(
     `/kampe/${match_id}`
   )
@@ -672,6 +868,28 @@ export async function deleteMatchEvent(
     fd.get('match_id')
   )
 
+  const {
+    data: existingEvent,
+    error: eventError,
+  } = await s
+    .from('match_events')
+    .select(
+      'id, event_type'
+    )
+    .eq('id', id)
+    .single()
+
+  if (eventError) {
+    console.error(
+      'GET MATCH EVENT ERROR:',
+      eventError
+    )
+
+    throw new Error(
+      'Kunne ikke finde kamphændelsen'
+    )
+  }
+
   const { error } = await s
     .from('match_events')
     .delete()
@@ -688,17 +906,31 @@ export async function deleteMatchEvent(
     )
   }
 
-  await s.from('audit_logs').insert({
-    admin_id: user.id,
-    action:
-      `Slettede kamphændelse ${id}`,
-  })
+  if (
+    existingEvent?.event_type ===
+    'goal'
+  ) {
+    await syncMatchScore(
+      s,
+      match_id
+    )
+  }
+
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+
+      action:
+        `Slettede kamphændelse ${id}`,
+    })
 
   revalidatePath('/')
-  revalidatePath(
-    '/admin/kampe'
-  )
+  revalidatePath('/admin/kampe')
   revalidatePath('/kampe')
+  revalidatePath('/statistik')
+  revalidatePath('/trup')
+
   revalidatePath(
     `/kampe/${match_id}`
   )
