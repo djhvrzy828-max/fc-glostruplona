@@ -2,6 +2,7 @@
 
 import { createServerSupabase } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
+import { sendPushToAll } from '@/lib/send-push'
 
 async function admin() {
   const s = await createServerSupabase()
@@ -10,7 +11,9 @@ async function admin() {
     data: { user },
   } = await s.auth.getUser()
 
-  if (!user) throw new Error('Ikke autoriseret')
+  if (!user) {
+    throw new Error('Ikke autoriseret')
+  }
 
   const { data: p } = await s
     .from('profiles')
@@ -18,7 +21,9 @@ async function admin() {
     .eq('id', user.id)
     .single()
 
-  if (!p?.is_admin) throw new Error('Ikke administrator')
+  if (!p?.is_admin) {
+    throw new Error('Ikke administrator')
+  }
 
   return { s, user }
 }
@@ -32,13 +37,19 @@ export async function createMatch(fd: FormData) {
     date: String(fd.get('date') || '') || null,
     kickoff_time: String(fd.get('kickoff_time') || '') || null,
     stadium: String(fd.get('stadium') || '') || null,
-    competition: String(fd.get('competition') || '9. divisionen'),
+    competition: String(
+      fd.get('competition') || '9. divisionen'
+    ),
     status: String(fd.get('status') || 'Kommende'),
   }
 
-  const { error } = await s.from('matches').insert(row)
+  const { error } = await s
+    .from('matches')
+    .insert(row)
 
-  if (error) throw error
+  if (error) {
+    throw error
+  }
 
   await s.from('audit_logs').insert({
     admin_id: user.id,
@@ -68,8 +79,14 @@ export async function updateMatch(fd: FormData) {
     .eq('id', id)
 
   if (error) {
-    console.error('UPDATE MATCH ERROR:', error)
-    throw new Error('Kunne ikke opdatere kampen')
+    console.error(
+      'UPDATE MATCH ERROR:',
+      error
+    )
+
+    throw new Error(
+      'Kunne ikke opdatere kampen'
+    )
   }
 
   await s.from('audit_logs').insert({
@@ -92,122 +109,196 @@ export async function updateOrder(fd: FormData) {
     .from('orders')
     .update({
       order_status: status,
-      payment_status: status === 'Betalt' ? 'Betalt' : undefined,
+      payment_status:
+        status === 'Betalt'
+          ? 'Betalt'
+          : undefined,
     })
     .eq('id', id)
 
-  if (error) throw error
+  if (error) {
+    throw error
+  }
 
   await s.from('audit_logs').insert({
     admin_id: user.id,
-    action: `Ændrede ordre ${id} til ${status}`,
+    action:
+      `Ændrede ordre ${id} til ${status}`,
   })
 
   revalidatePath('/admin/ordrer')
 }
 
-export async function createAnnouncement(fd: FormData) {
+export async function createAnnouncement(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
   const row = {
     title: String(fd.get('title')),
     body: String(fd.get('body')),
-    type: String(fd.get('type') || 'Information'),
+    type: String(
+      fd.get('type') || 'Information'
+    ),
     active: true,
   }
 
-  const { error } = await s.from('announcements').insert(row)
+  const { error } = await s
+    .from('announcements')
+    .insert(row)
 
-  if (error) throw error
+  if (error) {
+    throw error
+  }
 
   await s.from('audit_logs').insert({
     admin_id: user.id,
-    action: `Oprettede meddelelse: ${row.title}`,
+    action:
+      `Oprettede meddelelse: ${row.title}`,
   })
 
   revalidatePath('/')
-  revalidatePath('/admin/meddelelser')
+  revalidatePath(
+    '/admin/meddelelser'
+  )
 }
 
-export async function createPlayer(fd: FormData) {
+export async function createPlayer(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
-  const first_name = String(fd.get('first_name') || '').trim()
-  const last_name = String(fd.get('last_name') || '').trim()
-  const position = String(fd.get('position') || '').trim()
-  const shirt_number = Number(fd.get('shirt_number'))
+  const first_name = String(
+    fd.get('first_name') || ''
+  ).trim()
+
+  const last_name = String(
+    fd.get('last_name') || ''
+  ).trim()
+
+  const position = String(
+    fd.get('position') || ''
+  ).trim()
+
+  const shirt_number = Number(
+    fd.get('shirt_number')
+  )
 
   if (!first_name || !last_name) {
-    throw new Error('Spilleren skal have fornavn og efternavn')
+    throw new Error(
+      'Spilleren skal have fornavn og efternavn'
+    )
   }
 
   if (!Number.isInteger(shirt_number)) {
-    throw new Error('Trøjenummer skal være et tal')
+    throw new Error(
+      'Trøjenummer skal være et tal'
+    )
   }
 
-  const { error } = await s.from('players').insert({
-    first_name,
-    last_name,
-    position: position || null,
-    shirt_number,
-    active: true,
-  })
+  const { error } = await s
+    .from('players')
+    .insert({
+      first_name,
+      last_name,
+      position:
+        position || null,
+      shirt_number,
+      active: true,
+    })
 
   if (error) {
-    console.error('CREATE PLAYER ERROR:', error)
-    throw new Error('Kunne ikke oprette spilleren')
+    console.error(
+      'CREATE PLAYER ERROR:',
+      error
+    )
+
+    throw new Error(
+      'Kunne ikke oprette spilleren'
+    )
   }
 
   await s.from('audit_logs').insert({
     admin_id: user.id,
-    action: `Oprettede spiller ${first_name} ${last_name} #${shirt_number}`,
+    action:
+      `Oprettede spiller ${first_name} ${last_name} #${shirt_number}`,
   })
 
   revalidatePath('/trup')
-  revalidatePath('/admin/spillere')
+  revalidatePath(
+    '/admin/spillere'
+  )
 }
 
-export async function updatePlayer(fd: FormData) {
+export async function updatePlayer(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
   const id = String(fd.get('id'))
-  const first_name = String(fd.get('first_name') || '').trim()
-  const last_name = String(fd.get('last_name') || '').trim()
-  const position = String(fd.get('position') || '').trim()
-  const shirt_number = Number(fd.get('shirt_number'))
+
+  const first_name = String(
+    fd.get('first_name') || ''
+  ).trim()
+
+  const last_name = String(
+    fd.get('last_name') || ''
+  ).trim()
+
+  const position = String(
+    fd.get('position') || ''
+  ).trim()
+
+  const shirt_number = Number(
+    fd.get('shirt_number')
+  )
 
   const { error } = await s
     .from('players')
     .update({
       first_name,
       last_name,
-      position: position || null,
+      position:
+        position || null,
       shirt_number,
     })
     .eq('id', id)
 
   if (error) {
-    console.error('UPDATE PLAYER ERROR:', error)
-    throw new Error('Kunne ikke opdatere spilleren')
+    console.error(
+      'UPDATE PLAYER ERROR:',
+      error
+    )
+
+    throw new Error(
+      'Kunne ikke opdatere spilleren'
+    )
   }
 
   await s.from('audit_logs').insert({
     admin_id: user.id,
-    action: `Redigerede spiller ${first_name} ${last_name}`,
+    action:
+      `Redigerede spiller ${first_name} ${last_name}`,
   })
 
   revalidatePath('/trup')
-  revalidatePath('/admin/spillere')
+  revalidatePath(
+    '/admin/spillere'
+  )
 }
 
-export async function removePlayer(fd: FormData) {
+export async function removePlayer(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
   const id = String(fd.get('id'))
 
   const { data: player } = await s
     .from('players')
-    .select('first_name,last_name')
+    .select(
+      'first_name,last_name'
+    )
     .eq('id', id)
     .single()
 
@@ -219,23 +310,42 @@ export async function removePlayer(fd: FormData) {
     .eq('id', id)
 
   if (error) {
-    console.error('REMOVE PLAYER ERROR:', error)
-    throw new Error('Kunne ikke fjerne spilleren')
+    console.error(
+      'REMOVE PLAYER ERROR:',
+      error
+    )
+
+    throw new Error(
+      'Kunne ikke fjerne spilleren'
+    )
   }
 
   await s.from('audit_logs').insert({
     admin_id: user.id,
-    action: `Fjernede spiller ${player?.first_name || ''} ${player?.last_name || ''} fra truppen`,
+    action:
+      `Fjernede spiller ${player?.first_name || ''} ${player?.last_name || ''} fra truppen`,
   })
 
   revalidatePath('/trup')
-  revalidatePath('/admin/spillere')
-}export async function updateLiveScore(fd: FormData) {
+  revalidatePath(
+    '/admin/spillere'
+  )
+}
+
+export async function updateLiveScore(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
   const id = String(fd.get('id'))
-  const home_score = Number(fd.get('home_score'))
-  const away_score = Number(fd.get('away_score'))
+
+  const home_score = Number(
+    fd.get('home_score')
+  )
+
+  const away_score = Number(
+    fd.get('away_score')
+  )
 
   const { error } = await s
     .from('matches')
@@ -246,67 +356,274 @@ export async function removePlayer(fd: FormData) {
     .eq('id', id)
 
   if (error) {
-    console.error('UPDATE SCORE ERROR:', error)
-    throw new Error('Kunne ikke opdatere stillingen')
+    console.error(
+      'UPDATE SCORE ERROR:',
+      error
+    )
+
+    throw new Error(
+      'Kunne ikke opdatere stillingen'
+    )
   }
 
   await s.from('audit_logs').insert({
     admin_id: user.id,
-    action: `Opdaterede stillingen i kamp ${id} til ${home_score}-${away_score}`,
+    action:
+      `Opdaterede stillingen i kamp ${id} til ${home_score}-${away_score}`,
   })
 
-  revalidatePath('/admin/kampe')
+  revalidatePath('/')
+  revalidatePath(
+    '/admin/kampe'
+  )
   revalidatePath('/kampe')
-  revalidatePath(`/kampe/${id}`)
+  revalidatePath(
+    `/kampe/${id}`
+  )
 }
 
-export async function createMatchEvent(fd: FormData) {
+export async function createMatchEvent(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
-  const match_id = String(fd.get('match_id'))
-  const event_type = String(fd.get('event_type'))
-  const team = String(fd.get('team'))
-  const player_id = String(fd.get('player_id') || '')
-  const assist_player_id = String(fd.get('assist_player_id') || '')
-  const minute = Number(fd.get('minute'))
+  const match_id = String(
+    fd.get('match_id')
+  )
+
+  const event_type = String(
+    fd.get('event_type')
+  )
+
+  const team = String(
+    fd.get('team')
+  )
+
+  const player_id = String(
+    fd.get('player_id') || ''
+  )
+
+  const assist_player_id = String(
+    fd.get('assist_player_id') || ''
+  )
+
+  const minute = Number(
+    fd.get('minute')
+  )
+
+  if (
+    !Number.isInteger(minute) ||
+    minute < 1 ||
+    minute > 60
+  ) {
+    throw new Error(
+      'Kampminuttet skal være mellem 1 og 60'
+    )
+  }
 
   const row = {
     match_id,
     event_type,
     team,
-    player_id: player_id || null,
-    assist_player_id: assist_player_id || null,
+    player_id:
+      player_id || null,
+    assist_player_id:
+      assist_player_id || null,
     minute,
   }
 
-  const { error } = await s
+  const {
+    data: createdEvent,
+    error,
+  } = await s
     .from('match_events')
     .insert(row)
+    .select('id')
+    .single()
 
- if (error) {
-  console.error('CREATE MATCH EVENT ERROR:', error)
-  throw new Error(
-    `Supabase-fejl: ${error.code} - ${error.message}`
-  )
-}
+  if (error) {
+    console.error(
+      'CREATE MATCH EVENT ERROR:',
+      error
+    )
+
+    throw new Error(
+      `Supabase-fejl: ${error.code} - ${error.message}`
+    )
+  }
 
   await s.from('audit_logs').insert({
     admin_id: user.id,
-    action: `Registrerede ${event_type} i kamp ${match_id} (${minute}')`,
+    action:
+      `Registrerede ${event_type} i kamp ${match_id} (${minute}')`,
   })
 
-  revalidatePath('/admin/kampe')
+  if (event_type === 'goal') {
+    try {
+      const {
+        data: match,
+        error: matchError,
+      } = await s
+        .from('matches')
+        .select(
+          'id, home_team, away_team'
+        )
+        .eq('id', match_id)
+        .single()
+
+      if (matchError) {
+        console.error(
+          'PUSH MATCH ERROR:',
+          matchError
+        )
+      }
+
+      const {
+        data: goals,
+        error: goalsError,
+      } = await s
+        .from('match_events')
+        .select('team')
+        .eq(
+          'match_id',
+          match_id
+        )
+        .eq(
+          'event_type',
+          'goal'
+        )
+
+      if (goalsError) {
+        console.error(
+          'PUSH GOALS ERROR:',
+          goalsError
+        )
+      }
+
+      const homeScore =
+        goals?.filter(
+          (goal: any) =>
+            goal.team === 'home'
+        ).length || 0
+
+      const awayScore =
+        goals?.filter(
+          (goal: any) =>
+            goal.team === 'away'
+        ).length || 0
+
+      let scorerName = ''
+
+      if (player_id) {
+        const {
+          data: player,
+          error: playerError,
+        } = await s
+          .from('players')
+          .select(
+            'first_name, last_name'
+          )
+          .eq(
+            'id',
+            player_id
+          )
+          .single()
+
+        if (playerError) {
+          console.error(
+            'PUSH PLAYER ERROR:',
+            playerError
+          )
+        }
+
+        if (player) {
+          scorerName =
+            `${player.first_name} ${player.last_name}`
+        }
+      }
+
+      if (match) {
+        const scoringTeam =
+          team === 'home'
+            ? match.home_team
+            : match.away_team
+
+        const scoringForFCG =
+          scoringTeam
+            .trim()
+            .toLowerCase() ===
+          'fc glostruplona'
+
+        const scoreText =
+          `${match.home_team} ${homeScore}–${awayScore} ${match.away_team}`
+
+        const title =
+          scoringForFCG
+            ? '⚽ MÅÅÅL TIL FC GLOSTRUPLONA!'
+            : `⚽ Mål til ${scoringTeam}`
+
+        const body =
+          scoringForFCG &&
+          scorerName
+            ? `${scorerName} scorer! ${scoreText} • ${minute}'`
+            : `${scoreText} • ${minute}'`
+
+        await sendPushToAll({
+          title,
+          body,
+          url:
+            `/kampe/${match_id}`,
+        })
+
+        if (createdEvent?.id) {
+          console.log(
+            `Push sendt for mål-event ${createdEvent.id}`
+          )
+        }
+      }
+    } catch (pushError) {
+      console.error(
+        'GOAL PUSH ERROR:',
+        pushError
+      )
+    }
+  }
+
+  revalidatePath('/')
+  revalidatePath(
+    '/admin/kampe'
+  )
   revalidatePath('/kampe')
-  revalidatePath(`/kampe/${match_id}`)
-} export async function updateMatchEvent(fd: FormData) {
+  revalidatePath(
+    `/kampe/${match_id}`
+  )
+}
+
+export async function updateMatchEvent(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
-  const id = String(fd.get('id'))
-  const match_id = String(fd.get('match_id'))
-  const minute = Number(fd.get('minute'))
+  const id = String(
+    fd.get('id')
+  )
 
-  if (!Number.isInteger(minute) || minute < 1 || minute > 60) {
-    throw new Error('Kampminuttet skal være mellem 1 og 60')
+  const match_id = String(
+    fd.get('match_id')
+  )
+
+  const minute = Number(
+    fd.get('minute')
+  )
+
+  if (
+    !Number.isInteger(minute) ||
+    minute < 1 ||
+    minute > 60
+  ) {
+    throw new Error(
+      'Kampminuttet skal være mellem 1 og 60'
+    )
   }
 
   const { error } = await s
@@ -317,24 +634,43 @@ export async function createMatchEvent(fd: FormData) {
     .eq('id', id)
 
   if (error) {
-    console.error('UPDATE MATCH EVENT ERROR:', error)
-    throw new Error('Kunne ikke ændre kampminuttet')
+    console.error(
+      'UPDATE MATCH EVENT ERROR:',
+      error
+    )
+
+    throw new Error(
+      'Kunne ikke ændre kampminuttet'
+    )
   }
 
   await s.from('audit_logs').insert({
     admin_id: user.id,
-    action: `Ændrede kamphændelse ${id} til minut ${minute}`,
+    action:
+      `Ændrede kamphændelse ${id} til minut ${minute}`,
   })
 
-  revalidatePath('/admin/kampe')
-  revalidatePath(`/kampe/${match_id}`)
+  revalidatePath(
+    '/admin/kampe'
+  )
+  revalidatePath('/kampe')
+  revalidatePath(
+    `/kampe/${match_id}`
+  )
 }
 
-export async function deleteMatchEvent(fd: FormData) {
+export async function deleteMatchEvent(
+  fd: FormData
+) {
   const { s, user } = await admin()
 
-  const id = String(fd.get('id'))
-  const match_id = String(fd.get('match_id'))
+  const id = String(
+    fd.get('id')
+  )
+
+  const match_id = String(
+    fd.get('match_id')
+  )
 
   const { error } = await s
     .from('match_events')
@@ -342,15 +678,28 @@ export async function deleteMatchEvent(fd: FormData) {
     .eq('id', id)
 
   if (error) {
-    console.error('DELETE MATCH EVENT ERROR:', error)
-    throw new Error('Kunne ikke slette kamphændelsen')
+    console.error(
+      'DELETE MATCH EVENT ERROR:',
+      error
+    )
+
+    throw new Error(
+      'Kunne ikke slette kamphændelsen'
+    )
   }
 
   await s.from('audit_logs').insert({
     admin_id: user.id,
-    action: `Slettede kamphændelse ${id}`,
+    action:
+      `Slettede kamphændelse ${id}`,
   })
 
-  revalidatePath('/admin/kampe')
-  revalidatePath(`/kampe/${match_id}`)
+  revalidatePath('/')
+  revalidatePath(
+    '/admin/kampe'
+  )
+  revalidatePath('/kampe')
+  revalidatePath(
+    `/kampe/${match_id}`
+  )
 }
