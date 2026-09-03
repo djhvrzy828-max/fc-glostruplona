@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { getMatchState } from '@/lib/match-time'
 import LineupEditor from '@/components/LineupEditor'
+import DeleteMatchButton from '@/components/DeleteMatchButton'
 
 import {
   createMatch,
@@ -201,6 +202,47 @@ async function saveMatchLineup(
   revalidatePath(
     `/kampe/${matchId}`
   )
+}
+
+/*
+ * SLET EN HEL KAMP
+ *
+ * Tilknyttede data bliver slettet via
+ * database-relationernes ON DELETE CASCADE.
+ */
+async function deleteMatch(
+  formData: FormData
+) {
+  'use server'
+
+  const s = await createServerSupabase()
+
+  const matchId = String(
+    formData.get('match_id') || ''
+  )
+
+  if (!matchId) {
+    return
+  }
+
+  const { error } = await s
+    .from('matches')
+    .delete()
+    .eq('id', matchId)
+
+  if (error) {
+    console.error(
+      'DELETE MATCH ERROR:',
+      error
+    )
+    return
+  }
+
+  revalidatePath('/admin/kampe')
+  revalidatePath('/kampe')
+  revalidatePath('/')
+  revalidatePath('/statistik')
+  revalidatePath('/trup')
 }
 
 export default async function Page() {
@@ -404,14 +446,17 @@ export default async function Page() {
                 (lineup: any) => ({
                   player_id:
                     lineup.player_id,
+
                   x_position:
                     Number(
                       lineup.x_position
                     ),
+
                   y_position:
                     Number(
                       lineup.y_position
                     ),
+
                   lineup_role:
                     lineup.lineup_role,
                 })
@@ -425,7 +470,8 @@ export default async function Page() {
             state.phase ===
               '2. halvleg'
           ) {
-            liveText = `LIVE • ${state.minute}'`
+            liveText =
+              `LIVE • ${state.minute}'`
           } else if (
             state.phase === 'Pause'
           ) {
@@ -492,6 +538,23 @@ export default async function Page() {
                 >
                   {liveText}
                 </div>
+              </div>
+
+              {/* SLET KAMP */}
+              <div className="mb-6 flex justify-end">
+                <form
+                  action={deleteMatch}
+                >
+                  <input
+                    type="hidden"
+                    name="match_id"
+                    value={m.id}
+                  />
+
+                  <DeleteMatchButton
+                    matchName={`${m.home_team} vs ${m.away_team}`}
+                  />
+                </form>
               </div>
 
               {/* REDIGER KAMPINFO */}
@@ -679,9 +742,11 @@ export default async function Page() {
                             type="checkbox"
                             name="player_ids"
                             value={p.id}
-                            defaultChecked={selectedPlayerIds.has(
-                              p.id
-                            )}
+                            defaultChecked={
+                              selectedPlayerIds.has(
+                                p.id
+                              )
+                            }
                             className="h-5 w-5"
                           />
 
@@ -754,8 +819,7 @@ export default async function Page() {
                       type="number"
                       min="0"
                       defaultValue={
-                        m.home_score ??
-                        0
+                        m.home_score ?? 0
                       }
                       required
                     />
@@ -776,8 +840,7 @@ export default async function Page() {
                       type="number"
                       min="0"
                       defaultValue={
-                        m.away_score ??
-                        0
+                        m.away_score ?? 0
                       }
                       required
                     />
