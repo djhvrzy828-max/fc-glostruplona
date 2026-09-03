@@ -4,6 +4,7 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { Match } from '@/lib/types'
 import { getMatchState } from '@/lib/match-time'
 import LiveRefresh from '@/components/LiveRefresh'
+import PushNotificationButton from '@/components/PushNotificationButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,9 +41,7 @@ export default async function Home() {
             match.kickoff_time
           )
 
-          return (
-            state.phase !== 'Slut'
-          )
+          return state.phase !== 'Slut'
         }
       ) || null
 
@@ -54,11 +53,10 @@ export default async function Home() {
         )
 
       matches =
-        validMatches
-          .slice(
-            nextIndex,
-            nextIndex + 3
-          ) as Match[]
+        validMatches.slice(
+          nextIndex,
+          nextIndex + 3
+        ) as Match[]
 
       const {
         data: lineupRows,
@@ -110,8 +108,7 @@ export default async function Home() {
         )
       }
 
-      lineupPlayers =
-        players || []
+      lineupPlayers = players || []
 
       nextLineup =
         lineupRows?.map(
@@ -190,6 +187,32 @@ export default async function Home() {
             height={320}
             className="mx-auto"
           />
+        </div>
+      </section>
+
+      {/* NOTIFIKATIONER */}
+      <section className="card overflow-hidden p-5 md:p-6">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-2xl">
+            <div className="text-xs font-black uppercase tracking-[.25em] text-red-400">
+              FC Glostruplona Live
+            </div>
+
+            <h2 className="mt-2 text-2xl font-black">
+              Få besked når der sker noget 🔔
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-neutral-400">
+              Aktivér notifikationer og få
+              kampopdateringer fra FC
+              Glostruplona direkte på din
+              telefon.
+            </p>
+          </div>
+
+          <div className="shrink-0">
+            <PushNotificationButton />
+          </div>
         </div>
       </section>
 
