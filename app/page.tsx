@@ -9,16 +9,56 @@ import PushNotificationButton from '@/components/PushNotificationButton'
 
 export const dynamic = 'force-dynamic'
 
+function getCopenhagenDate() {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Copenhagen',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+
+  const parts = formatter.formatToParts(new Date())
+
+  const getPart = (type: string) =>
+    parts.find((part) => part.type === type)?.value || ''
+
+  return `${getPart('year')}-${getPart('month')}-${getPart('day')}`
+}
+
+function formatDate(date: string | null) {
+  if (!date) {
+    return 'Dato ikke fastsat'
+  }
+
+  const [year, month, day] = date.split('-')
+
+  return `${day}.${month}.${year}`
+}
+
 export default async function Home() {
   let matches: Match[] = []
   let announcement: any = null
   let nextMatch: any = null
   let nextLineup: any[] = []
-  let lineupPlayers: any[] = []
+
+  /*
+   * Kampdag-kampen kan både være:
+   *
+   * - kommende senere i dag
+   * - live
+   * - pause
+   * - overtid
+   * - afsluttet tidligere i dag
+   */
+  let matchdayMatch: any = null
+  let matchdayEvents: any[] = []
 
   try {
     const s = await createServerSupabase()
 
+    /*
+     * HENT ALLE KAMPE
+     */
     const { data: allMatches } = await s
       .from('matches')
       .select('*')
@@ -34,17 +74,83 @@ export default async function Home() {
           match.status !== 'Udsat'
       )
 
+    /*
+     * FIND DAGENS KAMP
+     *
+     * Hvis der findes en kamp i dag, går
+     * forsiden automatisk i MATCHDAY-mode.
+     */
+    const today = getCopenhagenDate()
+
+    matchdayMatch =
+      validMatches.find(
+        (match: any) =>
+          match.date === today
+      ) || null
+
+    /*
+     * HENT HÆNDELSER TIL DAGENS KAMP
+     *
+     * Bruges til:
+     * - live-score
+     * - slutresultat
+     * - målscorere
+     */
+    if (matchdayMatch) {
+      const {
+        data: matchdayEventRows,
+        error: matchdayEventsError,
+      } = await s
+        .from('match_events')
+        .select(`
+          id,
+          minute,
+          event_type,
+          team,
+          player_id,
+          assist_player_id,
+          player:players!match_events_player_id_fkey(
+            first_name,
+            last_name
+          ),
+          assist:players!match_events_assist_player_id_fkey(
+            first_name,
+            last_name
+          )
+        `)
+        .eq('match_id', matchdayMatch.id)
+        .order('minute', {
+          ascending: true,
+        })
+
+      if (matchdayEventsError) {
+        console.error(
+          'MATCHDAY EVENTS ERROR:',
+          matchdayEventsError
+        )
+      }
+
+      matchdayEvents =
+        matchdayEventRows || []
+    }
+
+    /*
+     * FIND NÆSTE IKKE-AFSLUTTEDE KAMP
+     */
     nextMatch =
       validMatches.find((match: any) => {
         const state = getMatchState(
-  match.date,
-  match.kickoff_time,
-  match.status
-)
+          match.date,
+          match.kickoff_time,
+          match.status
+        )
 
         return state.phase !== 'Slut'
       }) || null
 
+    /*
+     * KOMMENDE KAMPE
+     */
     if (nextMatch) {
       const nextIndex =
         validMatches.findIndex(
@@ -58,6 +164,9 @@ export default async function Home() {
           nextIndex + 3
         ) as Match[]
 
+      /*
+       * HENT STARTOPSTILLING
+       */
       const {
         data: lineupRows,
         error: lineupError,
@@ -88,6 +197,9 @@ export default async function Home() {
         )
       }
 
+      /*
+       * HENT SPILLERE
+       */
       const {
         data: players,
         error: playersError,
@@ -108,12 +220,14 @@ export default async function Home() {
         )
       }
 
-      lineupPlayers = players || []
+      const lineupPlayers =
+        players || []
 
       nextLineup =
         lineupRows?.map(
           (row: any) => ({
             ...row,
+
             player:
               lineupPlayers.find(
                 (player: any) =>
@@ -124,6 +238,9 @@ export default async function Home() {
         ) || []
     }
 
+    /*
+     * MEDDELELSE
+     */
     const { data: a } = await s
       .from('announcements')
       .select('*')
@@ -142,9 +259,90 @@ export default async function Home() {
     )
   }
 
+  /*
+   * KAMPDAG-DATA
+   */
+  const matchdayState =
+    matchdayMatch
+      ? getMatchState(
+          matchdayMatch.date,
+          matchdayMatch.kickoff_time,
+          matchdayMatch.status
+        )
+      : null
+
+  const matchdayGoals =
+    matchdayEvents.filter(
+      (event: any) =>
+        event.event_type === 'goal'
+    )
+
+  const matchdayHomeScore =
+    matchdayGoals.filter(
+      (event: any) =>
+        event.team === 'home'
+    ).length
+
+  const matchdayAwayScore =
+    matchdayGoals.filter(
+      (event: any) =>
+        event.team === 'away'
+    ).length
+
+  const isMatchdayLive =
+    matchdayState?.isLive &&
+    matchdayMatch?.status !== 'Udsat' &&
+    matchdayMatch?.status !== 'Aflyst'
+
+  /*
+   * TEKSTEN ØVERST PÅ MATCHDAY-KORTET
+   */
+  let matchdayStatus = 'MATCHDAY'
+
+  if (
+    matchdayState?.phase ===
+      '1. halvleg' ||
+    matchdayState?.phase ===
+      '2. halvleg'
+  ) {
+    matchdayStatus =
+      `LIVE • ${matchdayState.minute}'`
+  } else if (
+    matchdayState?.phase === 'Pause'
+  ) {
+    matchdayStatus = 'PAUSE'
+  } else if (
+    matchdayState?.phase === 'Overtid'
+  ) {
+    matchdayStatus =
+      `OVERTID • ${matchdayState.minute}'`
+  } else if (
+    matchdayState?.phase === 'Slut'
+  ) {
+    matchdayStatus = 'FULL TIME'
+  }
+
+  /*
+   * VIS SCORE HVIS KAMPEN ER STARTET.
+   * Ellers vises VS.
+   */
+  const matchdayHasStarted =
+    matchdayState &&
+    matchdayState.phase !== 'Kommende'
+
   return (
     <div className="space-y-6 md:space-y-8">
-      <LiveRefresh interval={30000} />
+      {/*
+       * Under en kamp opdaterer vi hurtigere,
+       * så forsiden føles som en rigtig livescore-app.
+       */}
+      <LiveRefresh
+        interval={
+          isMatchdayLive
+            ? 10000
+            : 30000
+        }
+      />
 
       {/* MEDDELELSE */}
       {announcement && (
@@ -159,58 +357,234 @@ export default async function Home() {
         </div>
       )}
 
-      {/* HERO */}
-      <section className="card relative overflow-hidden p-5 sm:p-6 md:p-10">
-        <div className="relative z-10 grid items-center gap-6 md:grid-cols-[1fr_320px] md:gap-8">
-          <div className="min-w-0">
-            <div className="text-[10px] font-black uppercase tracking-[.22em] text-red-400 sm:text-xs md:text-sm md:tracking-[.3em]">
-              Officiel klubside
+      {/*
+       * ==========================================
+       * KAMPDAG-MODE
+       * ==========================================
+       */}
+      {matchdayMatch &&
+      matchdayState ? (
+        <section
+          className={
+            isMatchdayLive
+              ? 'relative overflow-hidden rounded-[28px] border border-red-500/40 bg-gradient-to-b from-red-950/80 to-[#120d0b] shadow-2xl'
+              : 'relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-[#120d0b] shadow-2xl'
+          }
+        >
+          {/* BAGGRUNDSGLOW */}
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-red-700/20 blur-3xl" />
+
+          <div className="relative z-10 p-5 sm:p-7 md:p-10">
+            {/* TOP */}
+            <div className="flex items-center justify-between gap-3">
+              <div
+                className={
+                  isMatchdayLive
+                    ? 'text-[11px] font-black uppercase tracking-[.25em] text-red-400'
+                    : 'text-[11px] font-black uppercase tracking-[.25em] text-neutral-400'
+                }
+              >
+                {matchdayStatus}
+              </div>
+
+              {isMatchdayLive && (
+                <div className="flex items-center gap-2 rounded-full border border-red-500/30 bg-red-950/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-300">
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                  Live
+                </div>
+              )}
             </div>
 
-            <h1 className="mt-3 max-w-full text-[clamp(2.7rem,13vw,4.5rem)] font-black leading-[0.86] tracking-[-0.055em] md:text-7xl">
-              FC
-              <br />
-              <span className="break-words">
-                GLOSTRUPLONA
-              </span>
-            </h1>
+            {/* TURNERING */}
+            <div className="mt-5 text-center text-[10px] font-bold uppercase tracking-[.2em] text-neutral-500 sm:text-xs">
+              {matchdayMatch.competition ||
+                '9. divisionen'}
+            </div>
 
-            <p className="mt-5 max-w-xl text-[15px] leading-6 text-neutral-300 sm:text-base md:text-lg md:leading-7">
-              Øl, Damer & Sammenspil.
-              Kampe, resultater, truppen
-              og den officielle FCG-trøje
-              samlet ét sted.
-            </p>
+            {/* HOLD + SCORE */}
+            <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-5">
+              <div className="min-w-0 text-right">
+                <div className="text-lg font-black leading-tight sm:text-2xl md:text-3xl">
+                  {matchdayMatch.home_team}
+                </div>
+              </div>
 
-            <div className="mt-5 flex flex-wrap gap-2 md:hidden">
+              <div className="min-w-[86px] rounded-2xl border border-white/10 bg-black/30 px-3 py-4 text-center shadow-xl sm:min-w-[130px] sm:px-6">
+                {matchdayHasStarted ? (
+                  <div className="text-3xl font-black tracking-tight sm:text-5xl">
+                    {matchdayHomeScore}
+                    <span className="mx-2 text-neutral-600">
+                      –
+                    </span>
+                    {matchdayAwayScore}
+                  </div>
+                ) : (
+                  <div className="text-xl font-black text-neutral-400 sm:text-2xl">
+                    VS
+                  </div>
+                )}
+              </div>
+
+              <div className="min-w-0 text-left">
+                <div className="text-lg font-black leading-tight sm:text-2xl md:text-3xl">
+                  {matchdayMatch.away_team}
+                </div>
+              </div>
+            </div>
+
+            {/* KAMPINFO */}
+            <div className="mt-6 text-center text-xs text-neutral-400 sm:text-sm">
+              {formatDate(
+                matchdayMatch.date
+              )}
+
+              {matchdayMatch.kickoff_time
+                ? ` • ${matchdayMatch.kickoff_time.slice(
+                    0,
+                    5
+                  )}`
+                : ''}
+
+              {matchdayMatch.stadium
+                ? ` • ${matchdayMatch.stadium}`
+                : ''}
+            </div>
+
+            {/* MÅLSCORERE */}
+            {matchdayGoals.length > 0 && (
+              <div className="mx-auto mt-6 max-w-xl border-t border-white/10 pt-5">
+                <div className="mb-3 text-center text-[10px] font-black uppercase tracking-[.2em] text-neutral-500">
+                  Mål
+                </div>
+
+                <div className="space-y-2">
+                  {matchdayGoals.map(
+                    (goal: any) => {
+                      const playerName =
+                        goal.player
+                          ? `${goal.player.first_name} ${goal.player.last_name}`
+                          : goal.team ===
+                              'home'
+                            ? matchdayMatch.home_team
+                            : matchdayMatch.away_team
+
+                      return (
+                        <div
+                          key={goal.id}
+                          className="flex items-center justify-center gap-2 text-sm"
+                        >
+                          <span>
+                            ⚽
+                          </span>
+
+                          <span className="font-bold">
+                            {playerName}
+                          </span>
+
+                          <span className="text-neutral-500">
+                            {goal.minute}'
+                          </span>
+
+                          {goal.assist && (
+                            <span className="hidden text-xs text-neutral-500 sm:inline">
+                              • Assist:{' '}
+                              {
+                                goal.assist
+                                  .first_name
+                              }{' '}
+                              {
+                                goal.assist
+                                  .last_name
+                              }
+                            </span>
+                          )}
+                        </div>
+                      )
+                    }
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* KNAP */}
+            <div className="mt-7 flex justify-center">
               <Link
-                href="/kampe"
-                className="rounded-xl bg-red-800 px-4 py-2.5 text-sm font-black text-white"
+                href={`/kampe/${matchdayMatch.id}`}
+                className={
+                  isMatchdayLive
+                    ? 'rounded-xl bg-red-700 px-6 py-3 text-sm font-black text-white transition hover:bg-red-600'
+                    : 'rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-black text-white transition hover:bg-white/10'
+                }
               >
-                Se kampe
-              </Link>
-
-              <Link
-                href="/tabel"
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-black text-white"
-              >
-                Se tabel
+                {isMatchdayLive
+                  ? 'Følg kampen →'
+                  : matchdayState.phase ===
+                      'Slut'
+                    ? 'Se kampen →'
+                    : 'Se kampinfo →'}
               </Link>
             </div>
           </div>
+        </section>
+      ) : (
+        /*
+         * ==========================================
+         * NORMAL FORSIDE
+         * ==========================================
+         */
+        <section className="card relative overflow-hidden p-5 sm:p-6 md:p-10">
+          <div className="relative z-10 grid items-center gap-6 md:grid-cols-[1fr_320px] md:gap-8">
+            <div className="min-w-0">
+              <div className="text-[10px] font-black uppercase tracking-[.22em] text-red-400 sm:text-xs md:text-sm md:tracking-[.3em]">
+                Officiel klubside
+              </div>
 
-          <div className="flex justify-center">
-            <Image
-              src="/fcg-logo.png"
-              alt="FC Glostruplona logo"
-              width={320}
-              height={320}
-              priority
-              className="h-auto w-[210px] sm:w-[250px] md:w-[320px]"
-            />
+              <h1 className="mt-3 max-w-full text-[clamp(2.7rem,13vw,4.5rem)] font-black leading-[0.86] tracking-[-0.055em] md:text-7xl">
+                FC
+                <br />
+
+                <span className="break-words">
+                  GLOSTRUPLONA
+                </span>
+              </h1>
+
+              <p className="mt-5 max-w-xl text-[15px] leading-6 text-neutral-300 sm:text-base md:text-lg md:leading-7">
+                Øl, Damer & Sammenspil.
+                Kampe, resultater, truppen
+                og den officielle FCG-trøje
+                samlet ét sted.
+              </p>
+
+              <div className="mt-5 flex flex-wrap gap-2 md:hidden">
+                <Link
+                  href="/kampe"
+                  className="rounded-xl bg-red-800 px-4 py-2.5 text-sm font-black text-white"
+                >
+                  Se kampe
+                </Link>
+
+                <Link
+                  href="/tabel"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-black text-white"
+                >
+                  Se tabel
+                </Link>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <Image
+                src="/fcg-logo.png"
+                alt="FC Glostruplona logo"
+                width={320}
+                height={320}
+                priority
+                className="h-auto w-[210px] sm:w-[250px] md:w-[320px]"
+              />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* NOTIFIKATIONER */}
       <section className="card overflow-hidden p-4 sm:p-5 md:p-6">
@@ -241,7 +615,9 @@ export default async function Home() {
       <section>
         <div className="mb-3 md:mb-4">
           <div className="text-[10px] font-black uppercase tracking-[.22em] text-red-400 sm:text-xs">
-            Næste kamp
+            {matchdayMatch
+              ? 'Kampcenter'
+              : 'Næste kamp'}
           </div>
 
           <h2 className="mt-1 text-2xl font-black sm:text-3xl">
@@ -251,7 +627,18 @@ export default async function Home() {
 
         {nextMatch ? (
           <div className="space-y-4">
-            <MatchCard m={nextMatch} />
+            {/*
+             * Hvis dagens kamp også er nextMatch,
+             * har vi allerede en stor kampdag-boks
+             * øverst. Derfor undgår vi at vise det
+             * samme MatchCard to gange.
+             */}
+            {nextMatch.id !==
+              matchdayMatch?.id && (
+              <MatchCard
+                m={nextMatch}
+              />
+            )}
 
             {/* STARTOPSTILLING */}
             <div className="card p-4 sm:p-5 md:p-7">
@@ -270,6 +657,7 @@ export default async function Home() {
                   nextLineup.length > 0 && (
                     <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black sm:px-4 sm:text-sm">
                       Formation:{' '}
+
                       <span className="text-red-400">
                         {nextMatch.formation}
                       </span>
@@ -327,6 +715,7 @@ export default async function Home() {
                                   lineupPlayer.x_position
                                 ) || 50
                               }%`,
+
                               top: `${
                                 Number(
                                   lineupPlayer.y_position
@@ -374,12 +763,14 @@ export default async function Home() {
 
                   <div className="mx-auto mt-2 max-w-md text-sm leading-5 text-neutral-400">
                     FC Glostruplona møder{' '}
+
                     <span className="font-bold text-white">
                       {nextMatch.home_team ===
                       'FC Glostruplona'
                         ? nextMatch.away_team
                         : nextMatch.home_team}
                     </span>
+
                     . Holdet bliver vist her,
                     når startopstillingen er
                     klar.
@@ -419,14 +810,18 @@ export default async function Home() {
 
         <div className="grid gap-3 sm:gap-4">
           {matches.length ? (
-            matches.map(
-              (m) => (
+            matches
+              .filter(
+                (m) =>
+                  m.id !==
+                  matchdayMatch?.id
+              )
+              .map((m) => (
                 <MatchCard
                   key={m.id}
                   m={m}
                 />
-              )
-            )
+              ))
           ) : (
             <div className="card p-5 text-sm text-neutral-400 sm:p-6">
               Ingen kommende kampe er
