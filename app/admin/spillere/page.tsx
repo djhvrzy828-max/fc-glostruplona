@@ -1,15 +1,21 @@
-import { createServerSupabase } from '@/lib/supabase-server'
+import {
+  createServerSupabase,
+} from '@/lib/supabase-server'
+
+import PlayerVideoUploader from '@/components/PlayerVideoUploader'
+
 import {
   createPlayer,
   updatePlayer,
   removePlayer,
-  uploadPlayerVideo,
 } from '../actions'
 
-export const dynamic = 'force-dynamic'
+export const dynamic =
+  'force-dynamic'
 
 export default async function Page() {
-  const s = await createServerSupabase()
+  const s =
+    await createServerSupabase()
 
   const {
     data: players,
@@ -40,8 +46,9 @@ export default async function Page() {
         </h1>
 
         <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">
-          Administrer truppen, spillerinformation
-          og personlige loop-videoer.
+          Administrer truppen,
+          spillerinformation og
+          personlige loop-videoer.
         </p>
       </div>
 
@@ -109,13 +116,24 @@ export default async function Page() {
             />
           </div>
 
+          {/*
+           * createPlayer har stadig
+           * video_url i actionen.
+           * Vi sender bare et tomt felt.
+           */}
+          <input
+            type="hidden"
+            name="video_url"
+            value=""
+          />
+
           <button className="btn md:col-span-2">
             + TILFØJ SPILLER
           </button>
         </form>
       </section>
 
-      {/* REDIGER SPILLERE */}
+      {/* SPILLERE */}
       <section>
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
@@ -130,209 +148,188 @@ export default async function Page() {
 
           {players?.length ? (
             <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-black text-neutral-400">
-              {players.length} spillere
+              {players.length}{' '}
+              spillere
             </div>
           ) : null}
         </div>
 
         <div className="space-y-4">
-          {players?.map((player: any) => (
-            <div
-              key={player.id}
-              className="card overflow-hidden"
-            >
-              {/* SPILLER HEADER */}
-              <div className="flex items-center gap-4 border-b border-white/10 bg-white/[0.02] p-4 sm:p-5">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-red-500/20 bg-red-950/40 text-xl font-black text-red-400">
-                  #{player.shirt_number}
-                </div>
-
-                <div className="min-w-0">
-                  <div className="truncate text-lg font-black">
-                    {player.first_name}{' '}
-                    {player.last_name}
+          {players?.map(
+            (player: any) => (
+              <div
+                key={
+                  player.id
+                }
+                className="card overflow-hidden"
+              >
+                {/* HEADER */}
+                <div className="flex items-center gap-4 border-b border-white/10 bg-white/[0.02] p-4 sm:p-5">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-red-500/20 bg-red-950/40 text-xl font-black text-red-400">
+                    #
+                    {
+                      player.shirt_number
+                    }
                   </div>
 
-                  <div className="mt-1 text-sm text-neutral-500">
-                    {player.position ||
-                      'Ingen position'}
-                  </div>
-                </div>
-
-                {player.video_url && (
-                  <div className="ml-auto rounded-full border border-green-500/20 bg-green-950/30 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-green-400">
-                    🎬 VIDEO
-                  </div>
-                )}
-              </div>
-
-              <div className="p-4 sm:p-5">
-                {/* SPILLERINFO */}
-                <form action={updatePlayer}>
-                  <input
-                    type="hidden"
-                    name="id"
-                    value={player.id}
-                  />
-
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                      <label className="mb-1 block text-xs font-bold text-neutral-500">
-                        Fornavn
-                      </label>
-
-                      <input
-                        className="input w-full"
-                        name="first_name"
-                        defaultValue={
-                          player.first_name
-                        }
-                        required
-                      />
+                  <div className="min-w-0">
+                    <div className="truncate text-lg font-black">
+                      {
+                        player.first_name
+                      }{' '}
+                      {
+                        player.last_name
+                      }
                     </div>
 
-                    <div>
-                      <label className="mb-1 block text-xs font-bold text-neutral-500">
-                        Efternavn
-                      </label>
-
-                      <input
-                        className="input w-full"
-                        name="last_name"
-                        defaultValue={
-                          player.last_name
-                        }
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-bold text-neutral-500">
-                        Nummer
-                      </label>
-
-                      <input
-                        className="input w-full"
-                        name="shirt_number"
-                        type="number"
-                        min="0"
-                        max="99"
-                        defaultValue={
-                          player.shirt_number
-                        }
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-bold text-neutral-500">
-                        Position
-                      </label>
-
-                      <input
-                        className="input w-full"
-                        name="position"
-                        defaultValue={
-                          player.position || ''
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <button className="btn mt-5">
-                    GEM ÆNDRINGER
-                  </button>
-                </form>
-
-                {/* VIDEO UPLOAD */}
-                <div className="mt-6 border-t border-white/10 pt-6">
-                  <div className="mb-3">
-                    <div className="text-sm font-black">
-                      🎬 Spiller-video
-                    </div>
-
-                    <div className="mt-1 text-xs leading-5 text-neutral-500">
-                      Upload en kort video til
-                      spillerens profil. MP4 anbefales.
-                      Maks. 20 MB.
+                    <div className="mt-1 text-sm text-neutral-500">
+                      {player.position ||
+                        'Ingen position'}
                     </div>
                   </div>
 
                   {player.video_url && (
-                    <div className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-black">
-                      <video
-                        src={player.video_url}
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        className="aspect-video w-full object-cover sm:max-h-72"
-                      />
-
-                      <div className="flex items-center gap-2 border-t border-white/10 bg-white/[0.03] px-4 py-3">
-                        <span className="text-xs font-black text-green-400">
-                          ✓ VIDEO UPLOADET
-                        </span>
-
-                        <span className="text-xs text-neutral-500">
-                          • Upload en ny video for
-                          at erstatte den
-                        </span>
-                      </div>
+                    <div className="ml-auto rounded-full border border-green-500/20 bg-green-950/30 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-green-400">
+                      🎬 VIDEO
                     </div>
                   )}
+                </div>
 
+                <div className="p-4 sm:p-5">
+                  {/* INFO */}
                   <form
-                    action={uploadPlayerVideo}
-                    className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4"
+                    action={
+                      updatePlayer
+                    }
                   >
                     <input
                       type="hidden"
-                      name="player_id"
-                      value={player.id}
+                      name="id"
+                      value={
+                        player.id
+                      }
                     />
 
-                    <label className="block">
-                      <span className="mb-2 block text-xs font-bold text-neutral-400">
-                        Vælg videofil
-                      </span>
+                    {/*
+                     * VIGTIGT:
+                     * Bevarer video_url,
+                     * når navn/nummer ændres.
+                     */}
+                    <input
+                      type="hidden"
+                      name="video_url"
+                      value={
+                        player.video_url ||
+                        ''
+                      }
+                    />
 
-                      <input
-                        name="video"
-                        type="file"
-                        accept="video/*"
-                        required
-                        className="block w-full cursor-pointer rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-neutral-300 file:mr-3 file:rounded-lg file:border-0 file:bg-red-700 file:px-3 file:py-2 file:text-xs file:font-black file:text-white"
-                      />
-                    </label>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-neutral-500">
+                          Fornavn
+                        </label>
 
-                    <button
-                      type="submit"
-                      className="btn mt-4 w-full sm:w-auto"
-                    >
-                      🎬 UPLOAD VIDEO
+                        <input
+                          className="input w-full"
+                          name="first_name"
+                          defaultValue={
+                            player.first_name
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-neutral-500">
+                          Efternavn
+                        </label>
+
+                        <input
+                          className="input w-full"
+                          name="last_name"
+                          defaultValue={
+                            player.last_name
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-neutral-500">
+                          Nummer
+                        </label>
+
+                        <input
+                          className="input w-full"
+                          name="shirt_number"
+                          type="number"
+                          min="0"
+                          max="99"
+                          defaultValue={
+                            player.shirt_number
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-neutral-500">
+                          Position
+                        </label>
+
+                        <input
+                          className="input w-full"
+                          name="position"
+                          defaultValue={
+                            player.position ||
+                            ''
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <button className="btn mt-5">
+                      GEM ÆNDRINGER
+                    </button>
+                  </form>
+
+                  {/* VIDEO */}
+                  <div className="mt-6 border-t border-white/10 pt-6">
+                    <PlayerVideoUploader
+                      playerId={
+                        player.id
+                      }
+                      playerName={`${player.first_name} ${player.last_name}`}
+                      currentVideoUrl={
+                        player.video_url
+                      }
+                    />
+                  </div>
+
+                  {/* FJERN */}
+                  <form
+                    action={
+                      removePlayer
+                    }
+                    className="mt-6 border-t border-white/10 pt-5"
+                  >
+                    <input
+                      type="hidden"
+                      name="id"
+                      value={
+                        player.id
+                      }
+                    />
+
+                    <button className="rounded-xl border border-red-500/40 px-4 py-2.5 text-sm font-bold text-red-400 transition hover:bg-red-500/10">
+                      FJERN FRA TRUP
                     </button>
                   </form>
                 </div>
-
-                {/* FJERN SPILLER */}
-                <form
-                  action={removePlayer}
-                  className="mt-5"
-                >
-                  <input
-                    type="hidden"
-                    name="id"
-                    value={player.id}
-                  />
-
-                  <button className="rounded-xl border border-red-500/40 px-4 py-2.5 text-sm font-bold text-red-400 transition hover:bg-red-500/10">
-                    FJERN FRA TRUP
-                  </button>
-                </form>
               </div>
-            </div>
-          ))}
+            )
+          )}
 
           {!players?.length && (
             <div className="card p-8 text-center">
@@ -341,11 +338,8 @@ export default async function Page() {
               </div>
 
               <div className="mt-3 font-black">
-                Ingen aktive spillere
-              </div>
-
-              <div className="mt-1 text-sm text-neutral-500">
-                Tilføj den første spiller ovenfor.
+                Ingen aktive
+                spillere
               </div>
             </div>
           )}
