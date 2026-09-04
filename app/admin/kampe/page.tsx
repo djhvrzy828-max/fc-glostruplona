@@ -12,6 +12,7 @@ import {
   updateMatchEvent,
   deleteMatchEvent,
   finishMatch,
+  setManOfTheMatch,
 } from '../actions'
 
 export const dynamic = 'force-dynamic'
@@ -207,9 +208,6 @@ async function saveMatchLineup(
 
 /*
  * SLET EN HEL KAMP
- *
- * Tilknyttede data bliver slettet via
- * database-relationernes ON DELETE CASCADE.
  */
 async function deleteMatch(
   formData: FormData
@@ -410,10 +408,10 @@ export default async function Page() {
       <div className="space-y-6">
         {matches?.map((m: any) => {
           const state = getMatchState(
-  m.date,
-  m.kickoff_time,
-  m.status
-)
+            m.date,
+            m.kickoff_time,
+            m.status
+          )
 
           const matchEvents =
             events?.filter(
@@ -474,20 +472,21 @@ export default async function Page() {
           ) {
             liveText =
               `LIVE • ${state.minute}'`
-         } else if (
-  state.phase === 'Pause'
-) {
-  liveText = 'PAUSE'
-} else if (
-  state.phase === 'Overtid'
-) {
-  liveText =
-    `OVERTID • ${state.minute}'`
-} else if (
-  state.phase === 'Slut'
-) {
-  liveText = 'SLUT'
-}
+          } else if (
+            state.phase === 'Pause'
+          ) {
+            liveText = 'PAUSE'
+          } else if (
+            state.phase === 'Overtid'
+          ) {
+            liveText =
+              `OVERTID • ${state.minute}'`
+          } else if (
+            state.phase === 'Slut'
+          ) {
+            liveText = 'SLUT'
+          }
+
           if (
             m.status === 'Udsat'
           ) {
@@ -545,39 +544,44 @@ export default async function Page() {
                   {liveText}
                 </div>
               </div>
+
               {/* AFSLUT KAMP */}
-{isActuallyLive &&
-  m.status !== 'Slut' && (
-    <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-950/30 p-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="font-black text-white">
-            Kampen er live
-          </div>
+              {isActuallyLive &&
+                m.status !== 'Slut' && (
+                  <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-950/30 p-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="font-black text-white">
+                          Kampen er live
+                        </div>
 
-          <div className="mt-1 text-sm text-neutral-400">
-            Kampen afsluttes ikke automatisk.
-            Tryk først når dommeren har fløjtet af.
-          </div>
-        </div>
+                        <div className="mt-1 text-sm text-neutral-400">
+                          Kampen afsluttes ikke
+                          automatisk. Tryk først
+                          når dommeren har
+                          fløjtet af.
+                        </div>
+                      </div>
 
-        <form action={finishMatch}>
-          <input
-            type="hidden"
-            name="match_id"
-            value={m.id}
-          />
+                      <form
+                        action={finishMatch}
+                      >
+                        <input
+                          type="hidden"
+                          name="match_id"
+                          value={m.id}
+                        />
 
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-red-700 px-5 py-3 font-black text-white transition hover:bg-red-600 sm:w-auto"
-          >
-            🏁 AFSLUT KAMP
-          </button>
-        </form>
-      </div>
-    </div>
-  )}
+                        <button
+                          type="submit"
+                          className="w-full rounded-xl bg-red-700 px-5 py-3 font-black text-white transition hover:bg-red-600 sm:w-auto"
+                        >
+                          🏁 AFSLUT KAMP
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
 
               {/* SLET KAMP */}
               <div className="mb-6 flex justify-end">
@@ -887,6 +891,71 @@ export default async function Page() {
 
                   <button className="btn self-end">
                     GEM SCORE
+                  </button>
+                </form>
+              </div>
+
+              {/* MAN OF THE MATCH */}
+              <div className="mt-6 border-t border-white/10 pt-6">
+                <div className="mb-4">
+                  <div className="text-xs font-black uppercase tracking-[.2em] text-yellow-400">
+                    ⭐ Man of the Match
+                  </div>
+
+                  <h3 className="mt-1 text-xl font-black">
+                    Vælg kampens spiller
+                  </h3>
+
+                  <p className="mt-1 text-sm text-neutral-400">
+                    Vælg den FC
+                    Glostruplona-spiller,
+                    der skal stå som kampens
+                    spiller.
+                  </p>
+                </div>
+
+                <form
+                  action={setManOfTheMatch}
+                  className="grid gap-3 md:grid-cols-[1fr_auto]"
+                >
+                  <input
+                    type="hidden"
+                    name="match_id"
+                    value={m.id}
+                  />
+
+                  <select
+                    className="input w-full"
+                    name="player_id"
+                    defaultValue={
+                      m.man_of_match_player_id ||
+                      ''
+                    }
+                  >
+                    <option value="">
+                      Ingen valgt
+                    </option>
+
+                    {players?.map(
+                      (p: any) => (
+                        <option
+                          key={p.id}
+                          value={p.id}
+                        >
+                          #
+                          {p.shirt_number}{' '}
+                          {p.first_name}{' '}
+                          {p.last_name}
+                        </option>
+                      )
+                    )}
+                  </select>
+
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-yellow-500 px-5 py-3 font-black text-black transition hover:bg-yellow-400"
+                  >
+                    ⭐ GEM MAN OF THE MATCH
                   </button>
                 </form>
               </div>

@@ -48,6 +48,42 @@ export default async function Page({
 
   /*
    * ==========================================
+   * MAN OF THE MATCH
+   * ==========================================
+   */
+  let manOfTheMatch: any = null
+
+  if (m.man_of_match_player_id) {
+    const {
+      data: motmPlayer,
+      error: motmError,
+    } = await s
+      .from('players')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        shirt_number,
+        position
+      `)
+      .eq(
+        'id',
+        m.man_of_match_player_id
+      )
+      .maybeSingle()
+
+    if (motmError) {
+      console.error(
+        'MAN OF THE MATCH ERROR:',
+        motmError
+      )
+    }
+
+    manOfTheMatch = motmPlayer
+  }
+
+  /*
+   * ==========================================
    * HENT KAMPHÆNDELSER
    * ==========================================
    */
@@ -226,7 +262,6 @@ export default async function Page({
    * MÅLSCORERE
    * ==========================================
    */
-
   const homeGoals =
     goalEvents
       .filter(
@@ -253,10 +288,32 @@ export default async function Page({
 
   /*
    * ==========================================
+   * MOTM-STATISTIK I DENNE KAMP
+   * ==========================================
+   */
+  const motmGoals =
+    manOfTheMatch
+      ? goalEvents.filter(
+          (goal: any) =>
+            goal.player_id ===
+            manOfTheMatch.id
+        ).length
+      : 0
+
+  const motmAssists =
+    manOfTheMatch
+      ? goalEvents.filter(
+          (goal: any) =>
+            goal.assist_player_id ===
+            manOfTheMatch.id
+        ).length
+      : 0
+
+  /*
+   * ==========================================
    * EVENT HELPERS
    * ==========================================
    */
-
   function getEventInfo(e: any) {
     if (e.event_type === 'goal') {
       return {
@@ -305,10 +362,6 @@ export default async function Page({
 
   return (
     <div className="space-y-5 sm:space-y-7">
-      {/*
-       * Live = hurtigere refresh.
-       * Ikke-live = mindre aggressiv refresh.
-       */}
       <LiveRefresh
         interval={
           isLive
@@ -317,11 +370,7 @@ export default async function Page({
         }
       />
 
-      {/*
-       * ==========================================
-       * SCOREBOARD / HERO
-       * ==========================================
-       */}
+      {/* SCOREBOARD */}
       <section
         className={
           isLive
@@ -329,11 +378,9 @@ export default async function Page({
             : 'relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.07] to-[#120d0b] shadow-2xl'
         }
       >
-        {/* GLOW */}
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-red-700/20 blur-3xl" />
 
         <div className="relative z-10 p-5 sm:p-8 md:p-10">
-          {/* TURNERING */}
           <div className="text-center text-[10px] font-black uppercase tracking-[.25em] text-neutral-500 sm:text-xs">
             {m.competition ||
               '9. divisionen'}
@@ -358,12 +405,7 @@ export default async function Page({
             </div>
           </div>
 
-          {/*
-           * HOLD + SCORE
-           *
-           * Mobil-layoutet er lavet mere kompakt
-           * end den gamle version.
-           */}
+          {/* HOLD + SCORE */}
           <div className="mt-7 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-5">
             {/* HJEMME */}
             <div className="min-w-0 text-right">
@@ -371,7 +413,6 @@ export default async function Page({
                 {m.home_team}
               </div>
 
-              {/* HJEMMEMÅL */}
               {hasStarted &&
                 homeGoals.length > 0 && (
                   <div className="mt-3 space-y-1">
@@ -420,7 +461,6 @@ export default async function Page({
                 {m.away_team}
               </div>
 
-              {/* UDEMÅL */}
               {hasStarted &&
                 awayGoals.length > 0 && (
                   <div className="mt-3 space-y-1">
@@ -482,11 +522,7 @@ export default async function Page({
         </div>
       </section>
 
-      {/*
-       * ==========================================
-       * HURTIG KAMPSTATUS
-       * ==========================================
-       */}
+      {/* HURTIG KAMPSTATUS */}
       {hasStarted && (
         <section className="grid grid-cols-3 gap-2 sm:gap-3">
           <div className="card min-w-0 p-3 text-center sm:p-5">
@@ -529,11 +565,62 @@ export default async function Page({
         </section>
       )}
 
-      {/*
-       * ==========================================
-       * KAMPFORLØB
-       * ==========================================
-       */}
+      {/* MAN OF THE MATCH */}
+      {manOfTheMatch && (
+        <section className="relative overflow-hidden rounded-[26px] border border-yellow-500/30 bg-gradient-to-br from-yellow-950/40 via-[#17110c] to-[#120d0b] p-5 shadow-xl sm:p-7">
+          <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-yellow-500/10 blur-3xl" />
+
+          <div className="relative z-10">
+            <div className="text-[10px] font-black uppercase tracking-[.25em] text-yellow-400 sm:text-xs">
+              ⭐ Man of the Match
+            </div>
+
+            <div className="mt-4 flex items-center gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-yellow-400/60 bg-yellow-500/10 text-xl font-black text-yellow-300 sm:h-20 sm:w-20 sm:text-2xl">
+                #{manOfTheMatch.shirt_number}
+              </div>
+
+              <div className="min-w-0">
+                <h2 className="text-xl font-black sm:text-3xl">
+                  {manOfTheMatch.first_name}{' '}
+                  {manOfTheMatch.last_name}
+                </h2>
+
+                {manOfTheMatch.position && (
+                  <div className="mt-1 text-sm text-neutral-400">
+                    {manOfTheMatch.position}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {(motmGoals > 0 ||
+              motmAssists > 0) && (
+              <div className="mt-5 flex flex-wrap gap-2">
+                {motmGoals > 0 && (
+                  <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black">
+                    ⚽ {motmGoals}{' '}
+                    {motmGoals === 1
+                      ? 'mål'
+                      : 'mål'}
+                  </div>
+                )}
+
+                {motmAssists > 0 && (
+                  <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black">
+                    🎯 {motmAssists}{' '}
+                    {motmAssists === 1
+                      ? 'assist'
+                      : 'assists'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* KAMPFORLØB */}
       <section>
         <div className="mb-3">
           <div className="text-[10px] font-black uppercase tracking-[.22em] text-red-400 sm:text-xs">
@@ -575,12 +662,10 @@ export default async function Page({
                     }
                   >
                     <div className="grid grid-cols-[48px_1fr] items-start gap-3 sm:grid-cols-[60px_1fr] sm:gap-4">
-                      {/* MINUT */}
                       <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-sm font-black text-red-400 sm:h-12 sm:w-12">
                         {e.minute}'
                       </div>
 
-                      {/* EVENT */}
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-lg">
@@ -648,11 +733,7 @@ export default async function Page({
         )}
       </section>
 
-      {/*
-       * ==========================================
-       * STARTOPSTILLING
-       * ==========================================
-       */}
+      {/* STARTOPSTILLING */}
       <section>
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -680,9 +761,6 @@ export default async function Page({
         {startingLineup.length ? (
           <div className="card p-3 sm:p-6">
             <div className="mx-auto max-w-2xl">
-              {/*
-               * BANE
-               */}
               <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border-2 border-white/20 bg-green-800 shadow-2xl sm:rounded-3xl">
                 {/* GRÆSSTRIBER */}
                 <div className="pointer-events-none absolute inset-0 opacity-[0.06]">
@@ -698,28 +776,20 @@ export default async function Page({
                   <div className="h-[10%]" />
                 </div>
 
-                {/* YDRE BANE */}
                 <div className="pointer-events-none absolute inset-3 rounded-xl border-2 border-white/35" />
 
-                {/* MIDTERLINJE */}
                 <div className="pointer-events-none absolute inset-x-3 top-1/2 border-t-2 border-white/35" />
 
-                {/* MIDTERCIRKEL */}
                 <div className="pointer-events-none absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/35 sm:h-32 sm:w-32" />
 
-                {/* MIDTERPLET */}
                 <div className="pointer-events-none absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/60" />
 
-                {/* ØVERSTE STRAFFEFELT */}
                 <div className="pointer-events-none absolute left-[20%] right-[20%] top-3 h-[18%] border-x-2 border-b-2 border-white/35" />
 
-                {/* NEDERSTE STRAFFEFELT */}
                 <div className="pointer-events-none absolute bottom-3 left-[20%] right-[20%] h-[18%] border-x-2 border-t-2 border-white/35" />
 
-                {/* ØVERSTE MÅL */}
                 <div className="pointer-events-none absolute left-[38%] right-[38%] top-0 h-3 border-x-2 border-b-2 border-white/35" />
 
-                {/* NEDERSTE MÅL */}
                 <div className="pointer-events-none absolute bottom-0 left-[38%] right-[38%] h-3 border-x-2 border-t-2 border-white/35" />
 
                 {startingLineup.map(
@@ -753,7 +823,6 @@ export default async function Page({
                           }%`,
                         }}
                       >
-                        {/* SPILLER */}
                         <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-red-700 text-[10px] font-black text-white shadow-xl sm:h-14 sm:w-14 sm:text-sm">
                           #
                           {
@@ -761,7 +830,6 @@ export default async function Page({
                           }
                         </div>
 
-                        {/* NAVN */}
                         <div className="mt-1 max-w-[72px] truncate whitespace-nowrap rounded-md border border-white/10 bg-black/85 px-1.5 py-1 text-[8px] font-black text-white shadow-lg sm:max-w-32 sm:px-2 sm:text-xs">
                           {
                             player.first_name
@@ -802,11 +870,7 @@ export default async function Page({
         )}
       </section>
 
-      {/*
-       * ==========================================
-       * KAMPINFO
-       * ==========================================
-       */}
+      {/* KAMPINFO */}
       <section>
         <div className="mb-3">
           <div className="text-[10px] font-black uppercase tracking-[.22em] text-red-400 sm:text-xs">

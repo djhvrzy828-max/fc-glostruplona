@@ -1076,3 +1076,72 @@ export async function deleteMatchEvent(
     `/kampe/${matchId}`
   )
 }
+export async function setManOfTheMatch(
+  fd: FormData
+) {
+  const { s, user } = await admin()
+
+  const matchId = String(
+    fd.get('match_id') || ''
+  )
+
+  const playerId = String(
+    fd.get('player_id') || ''
+  )
+
+  if (!matchId) {
+    throw new Error('Kamp-ID mangler')
+  }
+
+  const { error } = await s
+    .from('matches')
+    .update({
+      man_of_match_player_id:
+        playerId || null,
+    })
+    .eq('id', matchId)
+
+  if (error) {
+    console.error(
+      'SET MOTM ERROR:',
+      error
+    )
+
+    throw new Error(
+      'Kunne ikke gemme Man of the Match'
+    )
+  }
+
+  let playerName = 'Ingen'
+
+  if (playerId) {
+    const {
+      data: player,
+    } = await s
+      .from('players')
+      .select(
+        'first_name,last_name'
+      )
+      .eq('id', playerId)
+      .maybeSingle()
+
+    if (player) {
+      playerName =
+        `${player.first_name} ${player.last_name}`
+    }
+  }
+
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+      action:
+        `Satte Man of the Match i kamp ${matchId} til ${playerName}`,
+    })
+
+  revalidatePath('/admin/kampe')
+  revalidatePath('/kampe')
+  revalidatePath(`/kampe/${matchId}`)
+  revalidatePath('/trup')
+  revalidatePath('/statistik')
+}
