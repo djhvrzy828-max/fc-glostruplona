@@ -492,45 +492,58 @@ export default async function Page({
       </Link>
 
       {/* HERO */}
-      <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-red-950/60 via-[#18100e] to-[#120d0b] shadow-2xl">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-red-700/20 blur-3xl" />
+      {player.video_url ? (
+        <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-black shadow-2xl">
+          {/* VIDEO */}
+          <div className="relative aspect-[4/5] w-full sm:aspect-[16/9]">
+            <video
+              src={player.video_url}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
 
-        <div className="relative z-10 p-5 sm:p-7 md:p-10">
-          <div className="text-[10px] font-black uppercase tracking-[.25em] text-red-400 sm:text-xs">
-            FC Glostruplona
-          </div>
+            {/* MØRKE LAG FOR LÆSBAR TEKST */}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/10" />
 
-          <div className="mt-5 flex items-end gap-4 sm:gap-6">
-            <div className="shrink-0 text-[64px] font-black leading-none tracking-[-0.06em] text-red-400 sm:text-[96px]">
-              #
-              {
-                player.shirt_number
-              }
-            </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/70 to-transparent" />
 
-            <div className="min-w-0 pb-1 sm:pb-2">
-              <h1 className="text-3xl font-black leading-[0.95] tracking-tight sm:text-5xl">
-                {
-                  player.first_name
-                }
-                <br />
+            {/* SPILLERINFO OVEN PÅ VIDEO */}
+            <div className="absolute inset-x-0 bottom-0 z-10 p-5 sm:p-7 md:p-10">
+              <div className="text-[10px] font-black uppercase tracking-[.25em] text-red-400 sm:text-xs">
+                FC Glostruplona
+              </div>
 
-                <span className="text-neutral-300">
-                  {
-                    player.last_name
-                  }
-                </span>
-              </h1>
+              <div className="mt-3 flex items-end gap-4 sm:gap-6">
+                <div className="shrink-0 text-[64px] font-black leading-none tracking-[-0.06em] text-red-400 drop-shadow-2xl sm:text-[96px]">
+                  #{player.shirt_number}
+                </div>
 
-              <div className="mt-3 text-sm font-bold text-neutral-400 sm:text-base">
-                {player.position ||
-                  'Position ikke registreret'}
+                <div className="min-w-0 pb-1 sm:pb-2">
+                  <h1 className="text-3xl font-black leading-[0.95] tracking-tight text-white drop-shadow-2xl sm:text-5xl">
+                    {player.first_name}
+                    <br />
+
+                    <span className="text-neutral-200">
+                      {player.last_name}
+                    </span>
+                  </h1>
+
+                  <div className="mt-3 text-sm font-bold text-neutral-300 sm:text-base">
+                    {player.position ||
+                      'Position ikke registreret'}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-7 grid grid-cols-4 gap-2 sm:gap-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center sm:p-4">
+          {/* HERO STATS */}
+          <div className="grid grid-cols-4 gap-2 border-t border-white/10 bg-[#120d0b] p-3 sm:gap-3 sm:p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center sm:p-4">
               <div className="text-[9px] font-black uppercase tracking-wider text-neutral-500 sm:text-xs">
                 Kampe
               </div>
@@ -540,7 +553,7 @@ export default async function Page({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center sm:p-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center sm:p-4">
               <div className="text-[9px] font-black uppercase tracking-wider text-neutral-500 sm:text-xs">
                 Mål
               </div>
@@ -550,7 +563,7 @@ export default async function Page({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center sm:p-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-center sm:p-4">
               <div className="text-[9px] font-black uppercase tracking-wider text-neutral-500 sm:text-xs">
                 Assists
               </div>
@@ -570,8 +583,82 @@ export default async function Page({
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-red-950/60 via-[#18100e] to-[#120d0b] shadow-2xl">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-red-700/20 blur-3xl" />
+
+          <div className="relative z-10 p-5 sm:p-7 md:p-10">
+            <div className="text-[10px] font-black uppercase tracking-[.25em] text-red-400 sm:text-xs">
+              FC Glostruplona
+            </div>
+
+            <div className="mt-5 flex items-end gap-4 sm:gap-6">
+              <div className="shrink-0 text-[64px] font-black leading-none tracking-[-0.06em] text-red-400 sm:text-[96px]">
+                #{player.shirt_number}
+              </div>
+
+              <div className="min-w-0 pb-1 sm:pb-2">
+                <h1 className="text-3xl font-black leading-[0.95] tracking-tight sm:text-5xl">
+                  {player.first_name}
+                  <br />
+
+                  <span className="text-neutral-300">
+                    {player.last_name}
+                  </span>
+                </h1>
+
+                <div className="mt-3 text-sm font-bold text-neutral-400 sm:text-base">
+                  {player.position ||
+                    'Position ikke registreret'}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-7 grid grid-cols-4 gap-2 sm:gap-3">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center sm:p-4">
+                <div className="text-[9px] font-black uppercase tracking-wider text-neutral-500 sm:text-xs">
+                  Kampe
+                </div>
+
+                <div className="mt-1 text-xl font-black sm:text-2xl">
+                  {matchesPlayed}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center sm:p-4">
+                <div className="text-[9px] font-black uppercase tracking-wider text-neutral-500 sm:text-xs">
+                  Mål
+                </div>
+
+                <div className="mt-1 text-xl font-black sm:text-2xl">
+                  {goals.length}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-center sm:p-4">
+                <div className="text-[9px] font-black uppercase tracking-wider text-neutral-500 sm:text-xs">
+                  Assists
+                </div>
+
+                <div className="mt-1 text-xl font-black sm:text-2xl">
+                  {assists.length}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-yellow-500/20 bg-yellow-950/20 p-3 text-center sm:p-4">
+                <div className="text-[9px] font-black uppercase tracking-wider text-yellow-500/70 sm:text-xs">
+                  MOTM
+                </div>
+
+                <div className="mt-1 text-xl font-black text-yellow-400 sm:text-2xl">
+                  {motmCount}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* STATISTIK */}
       <section>
