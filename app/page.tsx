@@ -37,9 +37,10 @@ export default async function Home() {
     nextMatch =
       validMatches.find((match: any) => {
         const state = getMatchState(
-          match.date,
-          match.kickoff_time
-        )
+  match.date,
+  match.kickoff_time,
+  match.status
+)
 
         return state.phase !== 'Slut'
       }) || null

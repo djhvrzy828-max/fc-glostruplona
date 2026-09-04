@@ -9,9 +9,10 @@ export default async function MatchCard({
   m: Match
 }) {
   const state = getMatchState(
-    m.date,
-    m.kickoff_time
-  )
+  m.date,
+  m.kickoff_time,
+  m.status
+)
 
   /*
    * HENT ALLE MÅL I KAMPEN
@@ -73,20 +74,19 @@ export default async function MatchCard({
   let statusText = 'KOMMENDE'
 
   if (
-    state.phase === '1. halvleg' ||
-    state.phase === '2. halvleg'
-  ) {
-    statusText =
-      `LIVE • ${state.minute}'`
-  } else if (
-    state.phase === 'Pause'
-  ) {
-    statusText = 'PAUSE'
-  } else if (
-    state.phase === 'Slut'
-  ) {
-    statusText = 'SLUT'
-  }
+  state.phase === '1. halvleg' ||
+  state.phase === '2. halvleg'
+) {
+  statusText = `LIVE • ${state.minute}'`
+} else if (state.phase === 'Pause') {
+  statusText = 'PAUSE'
+} else if (state.phase === 'Overtid') {
+  statusText = `OVERTID • ${state.minute}'`
+} else if (state.phase === 'Slut') {
+  statusText = 'SLUT'
+} else {
+  statusText = 'KOMMENDE'
+}
 
   /*
    * MANUELLE STATUSSER HAR PRIORITET

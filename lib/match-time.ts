@@ -1,7 +1,24 @@
 export function getMatchState(
   date: string | null,
-  kickoffTime: string | null
+  kickoffTime: string | null,
+  status?: string | null
 ) {
+  /*
+    VIGTIGT:
+    En kamp bliver nu KUN afsluttet, hvis status
+    er sat til "Slut" manuelt.
+
+    Tiden alene kan aldrig afslutte kampen.
+  */
+
+  if (status?.toLowerCase() === 'slut') {
+    return {
+      phase: 'Slut',
+      minute: 60,
+      isLive: false,
+    }
+  }
+
   if (!date || !kickoffTime) {
     return {
       phase: 'Kommende',
@@ -10,7 +27,7 @@ export function getMatchState(
     }
   }
 
-  // Hent det aktuelle klokkeslæt i Danmark
+  // Aktuelt klokkeslæt i Danmark
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Copenhagen',
     year: 'numeric',
@@ -25,7 +42,9 @@ export function getMatchState(
   const parts = formatter.formatToParts(new Date())
 
   const getPart = (type: string) =>
-    Number(parts.find((part) => part.type === type)?.value || 0)
+    Number(
+      parts.find((part) => part.type === type)?.value || 0
+    )
 
   const nowYear = getPart('year')
   const nowMonth = getPart('month')
@@ -42,8 +61,10 @@ export function getMatchState(
     .split(':')
     .map(Number)
 
-  // Vi bruger UTC her kun som en neutral måde at sammenligne
-  // de danske klokkeslæt på.
+  /*
+    UTC bruges kun som neutral værdi til at sammenligne
+    de danske dato- og klokkeslætsdele.
+  */
   const nowValue = Date.UTC(
     nowYear,
     nowMonth - 1,
@@ -66,7 +87,7 @@ export function getMatchState(
     (nowValue - kickoffValue) / 60000
   )
 
-  // Kampen er ikke startet endnu
+  // Ikke startet
   if (diffMinutes < 0) {
     return {
       phase: 'Kommende',
@@ -75,7 +96,7 @@ export function getMatchState(
     }
   }
 
-  // 1. halvleg: 30 minutter
+  // 1. halvleg
   if (diffMinutes < 30) {
     return {
       phase: '1. halvleg',
@@ -84,7 +105,7 @@ export function getMatchState(
     }
   }
 
-  // Pause: 5 minutter
+  // Pause
   if (diffMinutes < 35) {
     return {
       phase: 'Pause',
@@ -93,7 +114,7 @@ export function getMatchState(
     }
   }
 
-  // 2. halvleg: 30 minutter
+  // 2. halvleg
   if (diffMinutes < 65) {
     return {
       phase: '2. halvleg',
@@ -102,10 +123,17 @@ export function getMatchState(
     }
   }
 
-  // Kampen er færdig
+  /*
+    Ordinær tid er gået.
+
+    KAMPEN SLUTTER IKKE AUTOMATISK.
+
+    Den forbliver live indtil admin trykker
+    "Afslut kamp".
+  */
   return {
-    phase: 'Slut',
-    minute: 60,
-    isLive: false,
+    phase: 'Overtid',
+    minute: diffMinutes - 4,
+    isLive: true,
   }
 }

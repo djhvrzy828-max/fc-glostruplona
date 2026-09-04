@@ -183,9 +183,8 @@ async function sendOnce({
   /*
    * Vi reserverer notifikationen først.
    *
-   * Unique constraint i databasen sørger også
-   * for, at to samtidige cron-kald ikke sender
-   * samme besked to gange.
+   * Unique constraint i databasen sørger for,
+   * at samme besked ikke bliver sendt flere gange.
    */
   const marked =
     await markAsSent(
@@ -212,7 +211,7 @@ async function sendOnce({
     )
 
     /*
-     * Hvis push helt fejler, fjerner vi loggen,
+     * Hvis push fejler, sletter vi loggen,
      * så cron kan prøve igen næste minut.
      */
     await supabase
@@ -232,10 +231,7 @@ export async function POST(
   request: NextRequest
 ) {
   /*
-   * Beskyt endpointet.
-   *
-   * Vi laver MATCH_CRON_SECRET
-   * på Vercel bagefter.
+   * Beskyt endpointet med cron-secret.
    */
   const secret =
     request.headers.get(
@@ -298,10 +294,15 @@ export async function POST(
   let notificationsSent = 0
 
   for (const match of matches || []) {
+    /*
+     * Vi springer kampe over, som ikke skal
+     * behandles automatisk.
+     */
     if (
       !match.kickoff_time ||
       match.status === 'Aflyst' ||
-      match.status === 'Udsat'
+      match.status === 'Udsat' ||
+      match.status === 'Slut'
     ) {
       continue
     }
@@ -322,12 +323,11 @@ export async function POST(
     /*
      * KAMPSTART
      *
-     * Sendes første gang cron ser kampen,
-     * når kickoff er nået.
+     * Sendes én gang, når kampen er startet.
      *
-     * Kun inden pause-tidspunktet, så en
-     * gammel kamp ikke pludselig får en
-     * forsinket kampstart-notifikation.
+     * Vi begrænser vinduet til de første 30 minutter,
+     * så en gammel kamp ikke pludselig får
+     * en forsinket kampstart-notifikation.
      */
     if (
       elapsed >= 0 &&
@@ -352,7 +352,7 @@ export async function POST(
      * PAUSE
      *
      * 1. halvleg = 30 minutter.
-     * Pausen varer fra minut 30-34.
+     * Pause-vinduet er minut 30-34.
      */
     if (
       elapsed >= 30 &&
@@ -374,33 +374,16 @@ export async function POST(
     }
 
     /*
-     * SLUT
+     * VIGTIGT:
      *
-     * Kampen:
-     * 30 min 1. halvleg
-     * 5 min pause
-     * 30 min 2. halvleg
+     * DER ER IKKE LÆNGERE AUTOMATISK SLUT.
      *
-     * = slut efter 65 minutter
+     * Efter ordinær tid fortsætter kampen
+     * som live/overtid i appen.
+     *
+     * Slutnotifikationen sendes KUN når admin
+     * trykker "AFSLUT KAMP".
      */
-    if (
-      elapsed >= 65 &&
-      elapsed < 90
-    ) {
-      const sent =
-        await sendOnce({
-          matchId: match.id,
-          type: 'fulltime',
-          title:
-            '🏁 SLUT!',
-          body:
-            `${score} • Kampen er slut.`,
-        })
-
-      if (sent) {
-        notificationsSent++
-      }
-    }
   }
 
   return NextResponse.json({

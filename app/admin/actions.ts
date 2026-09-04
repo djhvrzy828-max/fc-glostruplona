@@ -586,10 +586,10 @@ export async function createMatchEvent(
   if (
     !Number.isInteger(minute) ||
     minute < 1 ||
-    minute > 60
+    minute > 120
   ) {
     throw new Error(
-      'Kampminuttet skal være mellem 1 og 60'
+      'Kampminuttet skal være mellem 1 og 120'
     )
   }
 
@@ -811,10 +811,10 @@ export async function updateMatchEvent(
   if (
     !Number.isInteger(minute) ||
     minute < 1 ||
-    minute > 60
+    minute > 120
   ) {
     throw new Error(
-      'Kampminuttet skal være mellem 1 og 60'
+      'Kampminuttet skal være mellem 1 og 120'
     )
   }
 
@@ -933,5 +933,146 @@ export async function deleteMatchEvent(
 
   revalidatePath(
     `/kampe/${match_id}`
+  )
+} export async function finishMatch(
+  fd: FormData
+) {
+  const { s, user } = await admin()
+
+  const matchId = String(
+    fd.get('match_id') || ''
+  )
+
+  if (!matchId) {
+    throw new Error(
+      'Kamp-ID mangler'
+    )
+  }
+
+  /*
+    Hent kampen først.
+
+    Vi bruger både hold og score til
+    slutnotifikationen.
+  */
+  const {
+    data: match,
+    error: matchError,
+  } = await s
+    .from('matches')
+    .select(`
+      id,
+      home_team,
+      away_team,
+      home_score,
+      away_score,
+      status
+    `)
+    .eq('id', matchId)
+    .single()
+
+  if (matchError || !match) {
+    console.error(
+      'FINISH MATCH GET ERROR:',
+      matchError
+    )
+
+    throw new Error(
+      'Kunne ikke finde kampen'
+    )
+  }
+
+  /*
+    Hvis kampen allerede er slut,
+    gør vi ingenting.
+
+    Det forhindrer bl.a. dobbelt
+    slutnotifikation ved dobbeltklik.
+  */
+  if (
+    String(match.status)
+      .toLowerCase() === 'slut'
+  ) {
+    return
+  }
+
+  /*
+    Sæt kampen til SLUT.
+
+    Fra dette øjeblik skal getMatchState()
+    læse status og stoppe live-kampen.
+  */
+  const { error: updateError } =
+    await s
+      .from('matches')
+      .update({
+        status: 'Slut',
+      })
+      .eq('id', matchId)
+
+  if (updateError) {
+    console.error(
+      'FINISH MATCH UPDATE ERROR:',
+      updateError
+    )
+
+    throw new Error(
+      'Kunne ikke afslutte kampen'
+    )
+  }
+
+  /*
+    Gem handlingen i audit-loggen.
+  */
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+      action:
+        `Afsluttede kamp ${match.home_team} vs ${match.away_team}`,
+    })
+
+  /*
+    Send slutresultatet.
+
+    Denne notifikation bliver altså først
+    sendt, når admin faktisk trykker
+    "AFSLUT KAMP".
+  */
+  const homeScore =
+    Number(match.home_score) || 0
+
+  const awayScore =
+    Number(match.away_score) || 0
+
+  const scoreText =
+    `${match.home_team} ${homeScore}–${awayScore} ${match.away_team}`
+
+  try {
+    await sendPushToAll({
+      title: '🏁 KAMPEN ER SLUT',
+      body: scoreText,
+      url: `/kampe/${matchId}`,
+    })
+  } catch (pushError) {
+    /*
+      Kampen skal stadig være afsluttet,
+      selv hvis push-notifikationen
+      skulle fejle.
+    */
+    console.error(
+      'FINISH MATCH PUSH ERROR:',
+      pushError
+    )
+  }
+
+  revalidatePath('/')
+  revalidatePath('/kampe')
+  revalidatePath('/admin/kampe')
+  revalidatePath('/statistik')
+  revalidatePath('/trup')
+
+  revalidatePath(
+    `/kampe/${matchId}`
   )
 }

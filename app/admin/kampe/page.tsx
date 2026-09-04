@@ -11,6 +11,7 @@ import {
   createMatchEvent,
   updateMatchEvent,
   deleteMatchEvent,
+  finishMatch,
 } from '../actions'
 
 export const dynamic = 'force-dynamic'
@@ -409,9 +410,10 @@ export default async function Page() {
       <div className="space-y-6">
         {matches?.map((m: any) => {
           const state = getMatchState(
-            m.date,
-            m.kickoff_time
-          )
+  m.date,
+  m.kickoff_time,
+  m.status
+)
 
           const matchEvents =
             events?.filter(
@@ -472,16 +474,20 @@ export default async function Page() {
           ) {
             liveText =
               `LIVE • ${state.minute}'`
-          } else if (
-            state.phase === 'Pause'
-          ) {
-            liveText = 'PAUSE'
-          } else if (
-            state.phase === 'Slut'
-          ) {
-            liveText = 'SLUT'
-          }
-
+         } else if (
+  state.phase === 'Pause'
+) {
+  liveText = 'PAUSE'
+} else if (
+  state.phase === 'Overtid'
+) {
+  liveText =
+    `OVERTID • ${state.minute}'`
+} else if (
+  state.phase === 'Slut'
+) {
+  liveText = 'SLUT'
+}
           if (
             m.status === 'Udsat'
           ) {
@@ -539,6 +545,39 @@ export default async function Page() {
                   {liveText}
                 </div>
               </div>
+              {/* AFSLUT KAMP */}
+{isActuallyLive &&
+  m.status !== 'Slut' && (
+    <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-950/30 p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="font-black text-white">
+            Kampen er live
+          </div>
+
+          <div className="mt-1 text-sm text-neutral-400">
+            Kampen afsluttes ikke automatisk.
+            Tryk først når dommeren har fløjtet af.
+          </div>
+        </div>
+
+        <form action={finishMatch}>
+          <input
+            type="hidden"
+            name="match_id"
+            value={m.id}
+          />
+
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-red-700 px-5 py-3 font-black text-white transition hover:bg-red-600 sm:w-auto"
+          >
+            🏁 AFSLUT KAMP
+          </button>
+        </form>
+      </div>
+    </div>
+  )}
 
               {/* SLET KAMP */}
               <div className="mb-6 flex justify-end">
@@ -992,7 +1031,7 @@ export default async function Page() {
                       name="minute"
                       type="number"
                       min="1"
-                      max="60"
+                      max="120"
                       defaultValue={
                         state.minute ?? 1
                       }
@@ -1100,7 +1139,7 @@ export default async function Page() {
                                 name="minute"
                                 type="number"
                                 min="1"
-                                max="60"
+                                max="120"
                                 defaultValue={
                                   e.minute
                                 }

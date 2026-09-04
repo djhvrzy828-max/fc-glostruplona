@@ -59,13 +59,6 @@ export default async function Page({
 
   /*
    * BEREGN SCORE DIREKTE FRA MÅL
-   *
-   * Det betyder:
-   * home goal = +1 hjemme
-   * away goal = +1 ude
-   *
-   * Hvis et mål slettes, forsvinder det
-   * automatisk fra scoren.
    */
   const goalEvents =
     events?.filter(
@@ -151,18 +144,22 @@ export default async function Page({
         player:
           lineupPlayers?.find(
             (player: any) =>
-              player.id ===
-              row.player_id
+              player.id === row.player_id
           ) || null,
       })
     ) || []
 
   /*
    * KAMPSTATUS / LIVE-TID
+   *
+   * VIGTIGT:
+   * status sendes med, så kampen kun bliver
+   * SLUT, når admin har sat status til Slut.
    */
   const state = getMatchState(
     m.date,
-    m.kickoff_time
+    m.kickoff_time,
+    m.status
   )
 
   let statusText = 'KOMMENDE'
@@ -177,6 +174,11 @@ export default async function Page({
     state.phase === 'Pause'
   ) {
     statusText = 'PAUSE'
+  } else if (
+    state.phase === 'Overtid'
+  ) {
+    statusText =
+      `OVERTID • ${state.minute}'`
   } else if (
     state.phase === 'Slut'
   ) {
@@ -264,8 +266,7 @@ export default async function Page({
             </div>
 
             {m.formation &&
-              startingLineup.length >
-                0 && (
+              startingLineup.length > 0 && (
                 <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black">
                   Formation:{' '}
                   <span className="text-red-400">
@@ -455,14 +456,10 @@ export default async function Page({
                             <div className="mt-1 text-xs text-neutral-500">
                               Assist:{' '}
                               {
-                                e
-                                  .assist
-                                  .first_name
+                                e.assist.first_name
                               }{' '}
                               {
-                                e
-                                  .assist
-                                  .last_name
+                                e.assist.last_name
                               }
                             </div>
                           )}
