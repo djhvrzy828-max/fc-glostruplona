@@ -320,6 +320,10 @@ export async function createPlayer(
     fd.get('position') || ''
   ).trim()
 
+  const video_url = String(
+    fd.get('video_url') || ''
+  ).trim()
+
   const shirt_number = Number(
     fd.get('shirt_number')
   )
@@ -353,6 +357,9 @@ export async function createPlayer(
         position || null,
 
       shirt_number,
+
+      video_url:
+        video_url || null,
 
       active: true,
     })
@@ -405,6 +412,10 @@ export async function updatePlayer(
     fd.get('position') || ''
   ).trim()
 
+  const video_url = String(
+    fd.get('video_url') || ''
+  ).trim()
+
   const shirt_number = Number(
     fd.get('shirt_number')
   )
@@ -419,6 +430,9 @@ export async function updatePlayer(
         position || null,
 
       shirt_number,
+
+      video_url:
+        video_url || null,
     })
     .eq('id', id)
 
@@ -443,7 +457,182 @@ export async function updatePlayer(
     })
 
   revalidatePath('/trup')
+  revalidatePath(`/trup/${id}`)
 
+  revalidatePath(
+    '/admin/spillere'
+  )
+}
+
+export async function uploadPlayerVideo(
+  fd: FormData
+) {
+  const { s, user } = await admin()
+
+  const playerId = String(
+    fd.get('player_id') || ''
+  ).trim()
+
+  const file = fd.get('video')
+
+  if (!playerId) {
+    throw new Error(
+      'Spiller-ID mangler'
+    )
+  }
+
+  if (
+    !(file instanceof File) ||
+    file.size === 0
+  ) {
+    throw new Error(
+      'Vælg en video først'
+    )
+  }
+
+  if (
+    !file.type.startsWith('video/')
+  ) {
+    throw new Error(
+      'Filen skal være en video'
+    )
+  }
+
+  /*
+   * Hold videoerne små nok til hurtig
+   * afspilning på telefon.
+   */
+  const maxSize =
+    20 * 1024 * 1024
+
+  if (file.size > maxSize) {
+    throw new Error(
+      'Videoen må højst fylde 20 MB'
+    )
+  }
+
+  const extension =
+    file.name
+      .split('.')
+      .pop()
+      ?.toLowerCase()
+      .replace(
+        /[^a-z0-9]/g,
+        ''
+      ) || 'mp4'
+
+  /*
+   * Samme spiller får samme filnavn.
+   * upsert erstatter derfor den gamle video.
+   */
+  const storagePath =
+    `${playerId}/profile.${extension}`
+
+  const bytes =
+    await file.arrayBuffer()
+
+  const {
+    error: uploadError,
+  } = await s.storage
+    .from('player-videos')
+    .upload(
+      storagePath,
+      bytes,
+      {
+        contentType:
+          file.type ||
+          'video/mp4',
+
+        upsert: true,
+
+        cacheControl: '3600',
+      }
+    )
+
+  if (uploadError) {
+    console.error(
+      'PLAYER VIDEO UPLOAD ERROR:',
+      uploadError
+    )
+
+    throw new Error(
+      'Kunne ikke uploade videoen'
+    )
+  }
+
+  const {
+    data: publicUrlData,
+  } = s.storage
+    .from('player-videos')
+    .getPublicUrl(
+      storagePath
+    )
+
+  const videoUrl =
+    publicUrlData.publicUrl
+
+  const {
+    data: player,
+    error: playerError,
+  } = await s
+    .from('players')
+    .select(
+      'first_name,last_name'
+    )
+    .eq('id', playerId)
+    .single()
+
+  if (playerError || !player) {
+    console.error(
+      'PLAYER VIDEO PLAYER ERROR:',
+      playerError
+    )
+
+    /*
+     * Fjern filen igen, hvis spilleren
+     * ikke kunne findes.
+     */
+    await s.storage
+      .from('player-videos')
+      .remove([storagePath])
+
+    throw new Error(
+      'Kunne ikke finde spilleren'
+    )
+  }
+
+  const { error: updateError } =
+    await s
+      .from('players')
+      .update({
+        video_url: videoUrl,
+      })
+      .eq('id', playerId)
+
+  if (updateError) {
+    console.error(
+      'PLAYER VIDEO URL ERROR:',
+      updateError
+    )
+
+    throw new Error(
+      'Videoen blev uploadet, men kunne ikke gemmes på spilleren'
+    )
+  }
+
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+
+      action:
+        `Uploadede spillervideo til ${player.first_name} ${player.last_name}`,
+    })
+
+  revalidatePath('/trup')
+  revalidatePath(
+    `/trup/${playerId}`
+  )
   revalidatePath(
     '/admin/spillere'
   )
