@@ -1076,6 +1076,7 @@ export async function deleteMatchEvent(
     `/kampe/${matchId}`
   )
 }
+
 export async function setManOfTheMatch(
   fd: FormData
 ) {
@@ -1093,18 +1094,49 @@ export async function setManOfTheMatch(
     throw new Error('Kamp-ID mangler')
   }
 
-  const { error } = await s
+  /*
+   * HENT KAMPEN
+   */
+  const {
+    data: match,
+    error: matchError,
+  } = await s
     .from('matches')
-    .update({
-      man_of_match_player_id:
-        playerId || null,
-    })
+    .select(`
+      id,
+      home_team,
+      away_team
+    `)
     .eq('id', matchId)
+    .single()
 
-  if (error) {
+  if (matchError || !match) {
+    console.error(
+      'MOTM MATCH ERROR:',
+      matchError
+    )
+
+    throw new Error(
+      'Kunne ikke finde kampen'
+    )
+  }
+
+  /*
+   * GEM MOTM
+   */
+  const { error: updateError } =
+    await s
+      .from('matches')
+      .update({
+        man_of_match_player_id:
+          playerId || null,
+      })
+      .eq('id', matchId)
+
+  if (updateError) {
     console.error(
       'SET MOTM ERROR:',
-      error
+      updateError
     )
 
     throw new Error(
@@ -1112,25 +1144,61 @@ export async function setManOfTheMatch(
     )
   }
 
-  let playerName = 'Ingen'
+  /*
+   * HVIS "INGEN VALGT"
+   */
+  if (!playerId) {
+    await s
+      .from('audit_logs')
+      .insert({
+        admin_id: user.id,
+        action:
+          `Fjernede Man of the Match fra kamp ${matchId}`,
+      })
 
-  if (playerId) {
-    const {
-      data: player,
-    } = await s
-      .from('players')
-      .select(
-        'first_name,last_name'
-      )
-      .eq('id', playerId)
-      .maybeSingle()
+    revalidatePath('/admin/kampe')
+    revalidatePath('/kampe')
+    revalidatePath(`/kampe/${matchId}`)
+    revalidatePath('/trup')
+    revalidatePath('/statistik')
 
-    if (player) {
-      playerName =
-        `${player.first_name} ${player.last_name}`
-    }
+    return
   }
 
+  /*
+   * HENT SPILLEREN
+   */
+  const {
+    data: player,
+    error: playerError,
+  } = await s
+    .from('players')
+    .select(`
+      id,
+      first_name,
+      last_name,
+      shirt_number
+    `)
+    .eq('id', playerId)
+    .single()
+
+  if (playerError || !player) {
+    console.error(
+      'MOTM PLAYER ERROR:',
+      playerError
+    )
+
+    throw new Error(
+      'Kunne ikke finde spilleren'
+    )
+  }
+
+  const playerName =
+    `${player.first_name} ${player.last_name}`
+
+  /*
+   * AUDIT LOG
+   */
   await s
     .from('audit_logs')
     .insert({
@@ -1138,6 +1206,45 @@ export async function setManOfTheMatch(
       action:
         `Satte Man of the Match i kamp ${matchId} til ${playerName}`,
     })
+
+  /*
+   * SEND PUSH HVER GANG ADMIN TRYKKER GEM
+   */
+  try {
+    const title =
+      '⭐ MAN OF THE MATCH'
+
+    const body =
+      `#${player.shirt_number} ${playerName} er valgt som kampens spiller efter ${match.home_team} vs ${match.away_team}.`
+
+    console.log(
+      'SENDER MOTM PUSH:',
+      {
+        matchId,
+        playerId,
+        title,
+        body,
+      }
+    )
+
+    const pushResult =
+      await sendPushToAll({
+        title,
+        body,
+        url:
+          `/kampe/${matchId}`,
+      })
+
+    console.log(
+      'MOTM PUSH RESULT:',
+      pushResult
+    )
+  } catch (pushError) {
+    console.error(
+      'MOTM PUSH ERROR:',
+      pushError
+    )
+  }
 
   revalidatePath('/admin/kampe')
   revalidatePath('/kampe')
