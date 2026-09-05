@@ -1,8 +1,1190 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-:root{color-scheme:dark} body{margin:0;background:#0d0908;color:#fff;font-family:Arial,Helvetica,sans-serif;background-image:radial-gradient(circle at 20% 0%,rgba(167,47,35,.2),transparent 35%)}
-a{color:inherit;text-decoration:none}.glass{background:rgba(28,18,15,.78);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px)}
-.card{border-radius:20px;background:#17110f;border:1px solid rgba(255,255,255,.08);box-shadow:0 18px 50px rgba(0,0,0,.25)}
-.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:.75rem 1rem;font-weight:800;background:#a72f23;color:#fff;transition:.2s}.btn:hover{transform:translateY(-1px);filter:brightness(1.1)}
-.input{width:100%;border-radius:12px;background:#100c0b;border:1px solid #3a2a26;padding:.75rem;color:#fff}.label{font-size:.8rem;color:#d8c6bf;font-weight:700}
+
+/* =========================================================
+   FCG APP 2.0 – GLOBAL DESIGN SYSTEM
+   ========================================================= */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #070707;
+  --bg-soft: #0d0d0d;
+  --panel: rgba(16, 16, 16, 0.9);
+  --panel-strong: #121212;
+
+  --text: #ffffff;
+  --muted: #9d9d9d;
+
+  --red: #d62828;
+  --red-strong: #ff3131;
+  --red-dark: #6f1212;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --shadow:
+    0 20px 60px rgba(0, 0, 0, 0.45);
+
+  --glow-red:
+    0 0 40px rgba(214, 40, 40, 0.22);
+}
+
+/* =========================================================
+   RESET
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+
+  background:
+    radial-gradient(
+      circle at 15% -10%,
+      rgba(214, 40, 40, 0.18),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 90% 20%,
+      rgba(120, 0, 0, 0.12),
+      transparent 30%
+    ),
+    linear-gradient(
+      180deg,
+      #090909 0%,
+      #070707 45%,
+      #050505 100%
+    );
+
+  color: var(--text);
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  overflow-x: hidden;
+
+  position: relative;
+}
+
+/* =========================================================
+   CINEMATIC GRAIN / TEXTURE
+   ========================================================= */
+
+body::before {
+  content: '';
+
+  position: fixed;
+  inset: 0;
+
+  pointer-events: none;
+  z-index: 9999;
+
+  opacity: 0.12;
+
+  background-image:
+    repeating-radial-gradient(
+      circle at 0 0,
+      transparent 0,
+      rgba(255,255,255,0.025) 1px,
+      transparent 2px
+    );
+
+  background-size: 5px 5px;
+
+  mix-blend-mode: soft-light;
+}
+
+/* subtil vignette */
+body::after {
+  content: '';
+
+  position: fixed;
+  inset: 0;
+
+  pointer-events: none;
+  z-index: 9998;
+
+  background:
+    radial-gradient(
+      circle at center,
+      transparent 45%,
+      rgba(0,0,0,0.55) 100%
+    );
+}
+
+/* =========================================================
+   LINKS
+   ========================================================= */
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* =========================================================
+   GLOBAL CONTAINERS
+   ========================================================= */
+
+.fcg-page {
+  position: relative;
+  z-index: 1;
+}
+
+.fcg-section {
+  position: relative;
+}
+
+.fcg-section-title {
+  font-size: 0.72rem;
+
+  font-weight: 900;
+
+  letter-spacing: 0.22em;
+
+  text-transform: uppercase;
+
+  color: var(--red-strong);
+}
+
+/* =========================================================
+   GLASS
+   ========================================================= */
+
+.glass {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(20, 20, 20, 0.86),
+      rgba(10, 10, 10, 0.9)
+    );
+
+  border:
+    1px solid
+    var(--border);
+
+  backdrop-filter:
+    blur(16px);
+
+  -webkit-backdrop-filter:
+    blur(16px);
+
+  box-shadow:
+    var(--shadow);
+}
+
+/* =========================================================
+   CARDS
+   ========================================================= */
+
+.card {
+  position: relative;
+
+  overflow: hidden;
+
+  border-radius: 22px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(22, 22, 22, 0.96),
+      rgba(11, 11, 11, 0.98)
+    );
+
+  border:
+    1px solid
+    var(--border);
+
+  box-shadow:
+    var(--shadow);
+
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.card::before {
+  content: '';
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      120deg,
+      rgba(255,255,255,0.035),
+      transparent 35%
+    );
+}
+
+.card:hover {
+  transform:
+    translateY(-2px);
+
+  border-color:
+    rgba(214, 40, 40, 0.38);
+
+  box-shadow:
+    0 24px 70px
+    rgba(0,0,0,0.52),
+    var(--glow-red);
+}
+
+/* =========================================================
+   HERO CARDS
+   ========================================================= */
+
+.fcg-hero {
+  position: relative;
+
+  min-height: 420px;
+
+  overflow: hidden;
+
+  border-radius: 28px;
+
+  border:
+    1px solid
+    rgba(255,255,255,0.1);
+
+  background:
+    #0a0a0a;
+
+  box-shadow:
+    0 30px 90px
+    rgba(0,0,0,0.65);
+}
+
+.fcg-hero-image {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+
+  filter:
+    saturate(0.82)
+    contrast(1.14)
+    brightness(0.66);
+}
+
+.fcg-hero-overlay {
+  position: absolute;
+  inset: 0;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(0,0,0,0.10) 0%,
+      rgba(0,0,0,0.32) 35%,
+      rgba(0,0,0,0.92) 88%,
+      #070707 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(110,0,0,0.20),
+      transparent 60%
+    );
+}
+
+.fcg-hero-content {
+  position: relative;
+  z-index: 2;
+
+  min-height: 420px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+
+  padding: 28px;
+}
+
+/* =========================================================
+   CINEMATIC PHOTO
+   ========================================================= */
+
+.fcg-photo {
+  position: relative;
+  overflow: hidden;
+
+  border-radius: 22px;
+}
+
+.fcg-photo img {
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+
+  filter:
+    saturate(0.82)
+    contrast(1.12)
+    brightness(0.72);
+
+  transition:
+    transform 0.4s ease;
+}
+
+.fcg-photo:hover img {
+  transform:
+    scale(1.025);
+}
+
+.fcg-photo::after {
+  content: '';
+
+  position: absolute;
+  inset: 0;
+
+  background:
+    linear-gradient(
+      180deg,
+      transparent 35%,
+      rgba(0,0,0,0.85) 100%
+    );
+
+  pointer-events: none;
+}
+
+/* =========================================================
+   DARK RED GLOW
+   ========================================================= */
+
+.fcg-red-glow {
+  box-shadow:
+    0 0 0 1px
+      rgba(214,40,40,0.22),
+    0 18px 60px
+      rgba(214,40,40,0.12);
+}
+
+/* =========================================================
+   TYPOGRAPHY
+   ========================================================= */
+
+.fcg-title {
+  font-size:
+    clamp(
+      2rem,
+      7vw,
+      4.5rem
+    );
+
+  line-height:
+    0.95;
+
+  font-weight:
+    1000;
+
+  letter-spacing:
+    -0.045em;
+
+  text-transform:
+    uppercase;
+}
+
+.fcg-heading {
+  font-size:
+    clamp(
+      1.5rem,
+      4vw,
+      2.5rem
+    );
+
+  font-weight:
+    950;
+
+  letter-spacing:
+    -0.03em;
+}
+
+.fcg-label {
+  color:
+    var(--red-strong);
+
+  font-size:
+    0.72rem;
+
+  font-weight:
+    900;
+
+  text-transform:
+    uppercase;
+
+  letter-spacing:
+    0.22em;
+}
+
+.fcg-muted {
+  color:
+    var(--muted);
+}
+
+/* =========================================================
+   BRUSH / GRAFFITI STYLE
+   ========================================================= */
+
+.fcg-brush {
+  display:
+    inline-block;
+
+  transform:
+    rotate(-2deg);
+
+  font-weight:
+    1000;
+
+  font-style:
+    italic;
+
+  letter-spacing:
+    -0.04em;
+
+  text-transform:
+    uppercase;
+
+  text-shadow:
+    0 4px 20px
+    rgba(0,0,0,0.7);
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.btn {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  gap:
+    0.45rem;
+
+  border:
+    1px solid
+    rgba(255,255,255,0.08);
+
+  border-radius:
+    14px;
+
+  padding:
+    0.8rem
+    1.05rem;
+
+  background:
+    linear-gradient(
+      180deg,
+      #e22d2d,
+      #a91414
+    );
+
+  color:
+    white;
+
+  font-weight:
+    900;
+
+  letter-spacing:
+    0.02em;
+
+  box-shadow:
+    0 12px 30px
+    rgba(160,0,0,0.26);
+
+  cursor:
+    pointer;
+
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.btn:hover {
+  transform:
+    translateY(-2px);
+
+  filter:
+    brightness(1.08);
+
+  box-shadow:
+    0 16px 40px
+    rgba(214,40,40,0.32);
+}
+
+.btn:active {
+  transform:
+    scale(0.98);
+}
+
+/* =========================================================
+   SECONDARY BUTTON
+   ========================================================= */
+
+.fcg-btn-secondary {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  border-radius:
+    14px;
+
+  border:
+    1px solid
+    var(--border-strong);
+
+  background:
+    rgba(255,255,255,0.045);
+
+  padding:
+    0.78rem
+    1rem;
+
+  font-weight:
+    850;
+
+  color:
+    white;
+
+  transition:
+    0.2s ease;
+}
+
+.fcg-btn-secondary:hover {
+  background:
+    rgba(255,255,255,0.08);
+
+  border-color:
+    rgba(214,40,40,0.3);
+}
+
+/* =========================================================
+   INPUTS
+   ========================================================= */
+
+.input {
+  width:
+    100%;
+
+  border-radius:
+    14px;
+
+  background:
+    rgba(8,8,8,0.82);
+
+  border:
+    1px solid
+    rgba(255,255,255,0.10);
+
+  padding:
+    0.8rem
+    0.9rem;
+
+  color:
+    white;
+
+  outline:
+    none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.input:focus {
+  border-color:
+    rgba(214,40,40,0.65);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(214,40,40,0.12);
+
+  background:
+    rgba(12,12,12,0.95);
+}
+
+.input::placeholder {
+  color:
+    #777;
+}
+
+.label {
+  font-size:
+    0.78rem;
+
+  color:
+    #c9c9c9;
+
+  font-weight:
+    800;
+}
+
+/* =========================================================
+   BADGES
+   ========================================================= */
+
+.fcg-badge {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  gap:
+    0.35rem;
+
+  border-radius:
+    999px;
+
+  padding:
+    0.38rem
+    0.7rem;
+
+  font-size:
+    0.7rem;
+
+  font-weight:
+    900;
+
+  letter-spacing:
+    0.08em;
+
+  text-transform:
+    uppercase;
+
+  background:
+    rgba(255,255,255,0.06);
+
+  border:
+    1px solid
+    rgba(255,255,255,0.08);
+}
+
+.fcg-badge-red {
+  color:
+    #ff6b6b;
+
+  background:
+    rgba(214,40,40,0.12);
+
+  border-color:
+    rgba(214,40,40,0.25);
+}
+
+/* =========================================================
+   LIVE PULSE
+   ========================================================= */
+
+.fcg-live-dot {
+  width:
+    8px;
+
+  height:
+    8px;
+
+  border-radius:
+    999px;
+
+  background:
+    #ff3030;
+
+  box-shadow:
+    0 0 12px
+    rgba(255,48,48,0.8);
+
+  animation:
+    fcgPulse
+    1.3s
+    infinite;
+}
+
+@keyframes fcgPulse {
+  0% {
+    opacity:
+      1;
+
+    transform:
+      scale(1);
+  }
+
+  50% {
+    opacity:
+      0.4;
+
+    transform:
+      scale(1.4);
+  }
+
+  100% {
+    opacity:
+      1;
+
+    transform:
+      scale(1);
+  }
+}
+
+/* =========================================================
+   PAGE FADE
+   ========================================================= */
+
+.fcg-fade-in {
+  animation:
+    fcgFadeIn
+    0.45s
+    ease both;
+}
+
+@keyframes fcgFadeIn {
+  from {
+    opacity:
+      0;
+
+    transform:
+      translateY(8px);
+  }
+
+  to {
+    opacity:
+      1;
+
+    transform:
+      translateY(0);
+  }
+}
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+::-webkit-scrollbar {
+  width:
+    8px;
+}
+
+::-webkit-scrollbar-track {
+  background:
+    #080808;
+}
+
+::-webkit-scrollbar-thumb {
+  background:
+    #292929;
+
+  border-radius:
+    999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background:
+    #3b3b3b;
+}
+
+/* =========================================================
+   MOBILE POLISH
+   ========================================================= */
+
+@media (
+  max-width: 640px
+) {
+  body {
+    background:
+      radial-gradient(
+        circle at 50% -10%,
+        rgba(214,40,40,0.16),
+        transparent 28%
+      ),
+      #070707;
+  }
+
+  .card {
+    border-radius:
+      18px;
+  }
+
+  .fcg-hero {
+    min-height:
+      500px;
+
+    border-radius:
+      0 0 28px 28px;
+  }
+
+  .fcg-hero-content {
+    min-height:
+      500px;
+
+    padding:
+      22px;
+  }
+
+  .fcg-title {
+    font-size:
+      clamp(
+        2.5rem,
+        12vw,
+        4rem
+      );
+  }
+}
+
+
+/* =========================================================
+   FCG APP 2.0 – FINAL POLISH LAYER
+   ========================================================= */
+
+/* Better native app feel */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-touch-callout: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(255, 49, 49, 0.75);
+  outline-offset: 3px;
+}
+
+/* Selection */
+::selection {
+  background: rgba(214, 40, 40, 0.55);
+  color: #fff;
+}
+
+/* Cards feel less flat */
+.card {
+  isolation: isolate;
+}
+
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(
+      circle at 80% 0%,
+      rgba(214, 40, 40, 0.12),
+      transparent 36%
+    );
+  transition: opacity 0.25s ease;
+}
+
+.card:hover::after {
+  opacity: 1;
+}
+
+/* Hero polish */
+.fcg-hero {
+  isolation: isolate;
+}
+
+.fcg-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  box-shadow:
+    inset 0 -80px 90px rgba(0, 0, 0, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.fcg-hero-image {
+  transform: scale(1.01);
+  transition:
+    transform 1.2s cubic-bezier(.2,.8,.2,1),
+    filter 0.4s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fcg-hero:hover .fcg-hero-image {
+    transform: scale(1.025);
+  }
+}
+
+/* Buttons */
+.btn,
+.fcg-btn-secondary {
+  min-height: 44px;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -70%;
+  width: 45%;
+  height: 200%;
+  pointer-events: none;
+  transform: rotate(18deg);
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.18),
+      transparent
+    );
+  transition: left 0.55s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover::before {
+    left: 130%;
+  }
+}
+
+/* Form controls */
+.input {
+  min-height: 46px;
+}
+
+textarea.input {
+  min-height: 110px;
+}
+
+select.input {
+  cursor: pointer;
+}
+
+.input:disabled,
+.btn:disabled {
+  opacity: 0.55;
+}
+
+/* Badges */
+.fcg-badge {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Subtle animated red ambience */
+.fcg-red-glow {
+  position: relative;
+}
+
+.fcg-red-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0.5;
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(214, 40, 40, 0.16),
+      transparent 55%
+    );
+}
+
+/* Images/videos should never drag or overflow oddly */
+img,
+video {
+  max-width: 100%;
+}
+
+video {
+  background: #050505;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+}
+
+tbody tr {
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+/* Better horizontal scrolling on mobile tables */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Page entry animation */
+.fcg-fade-in {
+  will-change: opacity, transform;
+}
+
+/* Desktop-only hover motion */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    transform: translateY(-3px);
+  }
+
+  a:active,
+  button:active {
+    transform: scale(0.985);
+  }
+}
+
+/* =========================================================
+   MOBILE APP POLISH
+   ========================================================= */
+
+@media (max-width: 640px) {
+  body::before {
+    opacity: 0.07;
+  }
+
+  body::after {
+    background:
+      radial-gradient(
+        circle at center,
+        transparent 55%,
+        rgba(0, 0, 0, 0.34) 100%
+      );
+  }
+
+  .fcg-page {
+    width: 100%;
+  }
+
+  .card {
+    box-shadow:
+      0 14px 38px rgba(0, 0, 0, 0.34);
+  }
+
+  /* No sticky-hover feeling on touch devices */
+  .card:hover {
+    transform: none;
+    border-color: var(--border);
+    box-shadow:
+      0 14px 38px rgba(0, 0, 0, 0.34);
+  }
+
+  .card:hover::after {
+    opacity: 0;
+  }
+
+  .fcg-photo:hover img {
+    transform: none;
+  }
+
+  .btn {
+    border-radius: 13px;
+  }
+
+  .fcg-badge {
+    font-size: 0.64rem;
+    padding: 0.34rem 0.62rem;
+  }
+
+  .fcg-label,
+  .fcg-section-title {
+    letter-spacing: 0.18em;
+  }
+
+  /* Keep cinematic hero, but reduce GPU-heavy effects */
+  .fcg-hero-image {
+    transform: none;
+    transition: none;
+  }
+
+  .glass {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+/* =========================================================
+   SMALL PHONES
+   ========================================================= */
+
+@media (max-width: 380px) {
+  .fcg-hero-content {
+    padding: 18px;
+  }
+
+  .fcg-title {
+    font-size: clamp(2.2rem, 11.5vw, 3.35rem);
+  }
+
+  .fcg-heading {
+    font-size: clamp(1.35rem, 7vw, 2rem);
+  }
+
+  .btn,
+  .fcg-btn-secondary {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+}
+
+/* =========================================================
+   ACCESSIBILITY / PERFORMANCE
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

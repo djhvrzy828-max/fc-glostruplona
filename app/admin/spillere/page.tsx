@@ -34,36 +34,90 @@ export default async function Page() {
   }
 
   return (
-    <div>
-      {/* HEADER */}
-      <div className="mb-6">
-        <div className="text-[10px] font-black uppercase tracking-[.25em] text-red-400 sm:text-xs">
-          FC Glostruplona
+    <div className="fcg-page fcg-fade-in space-y-8 md:space-y-10">
+
+      {/* ==================================================
+          HEADER
+         ================================================== */}
+
+      <section
+        className="
+          relative
+          overflow-hidden
+          rounded-[28px]
+          border
+          border-white/10
+          bg-black
+          p-6
+          shadow-[0_30px_90px_rgba(0,0,0,.5)]
+          sm:p-8
+          md:p-10
+        "
+      >
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-red-700/15 blur-[90px]" />
+
+        <div className="relative z-10">
+          <div className="fcg-label">
+            FCG ADMIN
+          </div>
+
+          <h1 className="mt-2 text-4xl font-black uppercase tracking-[-.04em] sm:text-5xl">
+            SQUAD <span className="text-red-500">MANAGER</span>
+          </h1>
+
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-400 sm:text-base">
+            Administrér spillertruppen, trøjenumre, positioner og personlige
+            loop-videoer til spillerprofilerne.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-2">
+            <div className="fcg-badge fcg-badge-red">
+              {players?.length || 0} AKTIVE SPILLERE
+            </div>
+
+            <div className="fcg-badge">
+              VIDEOER VIA ADMIN
+            </div>
+          </div>
         </div>
+      </section>
 
-        <h1 className="mt-1 text-3xl font-black sm:text-4xl">
-          Spillere
-        </h1>
+      {/* ==================================================
+          OPRET SPILLER
+         ================================================== */}
 
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">
-          Administrer truppen,
-          spillerinformation og
-          personlige loop-videoer.
-        </p>
-      </div>
+      <section>
+        <div className="mb-4">
+          <div className="fcg-label">
+            Ny spiller
+          </div>
 
-      {/* OPRET SPILLER */}
-      <section className="mb-8">
-        <h2 className="mb-3 text-2xl font-black">
-          Tilføj spiller
-        </h2>
+          <h2 className="fcg-heading mt-1">
+            Tilføj til truppen
+          </h2>
+        </div>
 
         <form
           action={createPlayer}
-          className="card grid gap-4 p-5 sm:p-6 md:grid-cols-2"
+          className="
+            relative
+            grid
+            gap-4
+            overflow-hidden
+            rounded-[26px]
+            border
+            border-white/10
+            bg-[#0d0d0d]
+            p-5
+            shadow-xl
+            sm:p-6
+            md:grid-cols-2
+          "
         >
-          <div>
-            <label className="mb-1 block text-xs font-bold text-neutral-500">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-red-700/10 blur-[70px]" />
+
+          <div className="relative z-10">
+            <label className="label mb-2 block">
               Fornavn
             </label>
 
@@ -75,8 +129,8 @@ export default async function Page() {
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-bold text-neutral-500">
+          <div className="relative z-10">
+            <label className="label mb-2 block">
               Efternavn
             </label>
 
@@ -88,8 +142,8 @@ export default async function Page() {
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-bold text-neutral-500">
+          <div className="relative z-10">
+            <label className="label mb-2 block">
               Trøjenummer
             </label>
 
@@ -99,13 +153,13 @@ export default async function Page() {
               type="number"
               min="0"
               max="99"
-              placeholder="Trøjenummer"
+              placeholder="Fx 10"
               required
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-bold text-neutral-500">
+          <div className="relative z-10">
+            <label className="label mb-2 block">
               Position
             </label>
 
@@ -116,147 +170,179 @@ export default async function Page() {
             />
           </div>
 
-          {/*
-           * createPlayer har stadig
-           * video_url i actionen.
-           * Vi sender bare et tomt felt.
-           */}
           <input
             type="hidden"
             name="video_url"
             value=""
           />
 
-          <button className="btn md:col-span-2">
+          <button className="btn relative z-10 md:col-span-2">
             + TILFØJ SPILLER
           </button>
         </form>
       </section>
 
-      {/* SPILLERE */}
+      {/* ==================================================
+          SPILLERE
+         ================================================== */}
+
       <section>
-        <div className="mb-4 flex items-end justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-[.22em] text-red-400 sm:text-xs">
+            <div className="fcg-label">
               Truppen
             </div>
 
-            <h2 className="mt-1 text-2xl font-black sm:text-3xl">
+            <h2 className="fcg-heading mt-1">
               Rediger spillere
             </h2>
           </div>
 
           {players?.length ? (
-            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-black text-neutral-400">
-              {players.length}{' '}
-              spillere
+            <div className="fcg-badge">
+              {players.length} SPILLERE
             </div>
           ) : null}
         </div>
 
         <div className="space-y-4">
-          {players?.map(
-            (player: any) => (
+          {players?.map((player: any) => (
+            <article
+              key={player.id}
+              className="
+                relative
+                overflow-hidden
+                rounded-[26px]
+                border
+                border-white/10
+                bg-[#0d0d0d]
+                shadow-[0_22px_70px_rgba(0,0,0,.4)]
+              "
+            >
+              <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-red-700/10 blur-[70px]" />
+
+              {/* PLAYER HEADER */}
               <div
-                key={
-                  player.id
-                }
-                className="card overflow-hidden"
+                className="
+                  relative
+                  z-10
+                  flex
+                  flex-wrap
+                  items-center
+                  gap-4
+                  border-b
+                  border-white/[0.07]
+                  bg-white/[0.015]
+                  p-4
+                  sm:p-5
+                "
               >
-                {/* HEADER */}
-                <div className="flex items-center gap-4 border-b border-white/10 bg-white/[0.02] p-4 sm:p-5">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-red-500/20 bg-red-950/40 text-xl font-black text-red-400">
-                    #
-                    {
-                      player.shirt_number
-                    }
+                <div
+                  className="
+                    flex
+                    h-16
+                    w-16
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-[20px]
+                    border
+                    border-red-500/20
+                    bg-gradient-to-b
+                    from-red-950/60
+                    to-black
+                    text-2xl
+                    font-black
+                    text-red-400
+                    shadow-[0_10px_30px_rgba(120,0,0,.18)]
+                  "
+                >
+                  #{player.shirt_number}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="text-[9px] font-black uppercase tracking-[.16em] text-neutral-600">
+                    FC GLOSTRUPLONA
                   </div>
 
-                  <div className="min-w-0">
-                    <div className="truncate text-lg font-black">
-                      {
-                        player.first_name
-                      }{' '}
-                      {
-                        player.last_name
-                      }
-                    </div>
-
-                    <div className="mt-1 text-sm text-neutral-500">
-                      {player.position ||
-                        'Ingen position'}
-                    </div>
+                  <div className="mt-1 truncate text-xl font-black uppercase tracking-[-.02em] sm:text-2xl">
+                    {player.first_name} {player.last_name}
                   </div>
 
-                  {player.video_url && (
-                    <div className="ml-auto rounded-full border border-green-500/20 bg-green-950/30 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-green-400">
-                      🎬 VIDEO
+                  <div className="mt-1 text-sm text-neutral-500">
+                    {player.position || 'Ingen position'}
+                  </div>
+                </div>
+
+                <div className="ml-auto">
+                  {player.video_url ? (
+                    <div className="rounded-full border border-green-500/20 bg-green-950/30 px-3 py-2 text-[9px] font-black uppercase tracking-[.15em] text-green-400">
+                      🎬 VIDEO AKTIV
+                    </div>
+                  ) : (
+                    <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-[9px] font-black uppercase tracking-[.15em] text-neutral-600">
+                      INGEN VIDEO
                     </div>
                   )}
                 </div>
+              </div>
 
-                <div className="p-4 sm:p-5">
-                  {/* INFO */}
-                  <form
-                    action={
-                      updatePlayer
-                    }
-                  >
+              <div className="relative z-10 space-y-6 p-4 sm:p-5">
+
+                {/* INFO */}
+                <section>
+                  <div className="mb-4">
+                    <div className="text-[9px] font-black uppercase tracking-[.18em] text-red-400">
+                      Spillerdata
+                    </div>
+
+                    <h3 className="mt-1 text-lg font-black">
+                      Profiloplysninger
+                    </h3>
+                  </div>
+
+                  <form action={updatePlayer}>
                     <input
                       type="hidden"
                       name="id"
-                      value={
-                        player.id
-                      }
+                      value={player.id}
                     />
 
-                    {/*
-                     * VIGTIGT:
-                     * Bevarer video_url,
-                     * når navn/nummer ændres.
-                     */}
                     <input
                       type="hidden"
                       name="video_url"
-                      value={
-                        player.video_url ||
-                        ''
-                      }
+                      value={player.video_url || ''}
                     />
 
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                       <div>
-                        <label className="mb-1 block text-xs font-bold text-neutral-500">
+                        <label className="label mb-2 block">
                           Fornavn
                         </label>
 
                         <input
                           className="input w-full"
                           name="first_name"
-                          defaultValue={
-                            player.first_name
-                          }
+                          defaultValue={player.first_name}
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="mb-1 block text-xs font-bold text-neutral-500">
+                        <label className="label mb-2 block">
                           Efternavn
                         </label>
 
                         <input
                           className="input w-full"
                           name="last_name"
-                          defaultValue={
-                            player.last_name
-                          }
+                          defaultValue={player.last_name}
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="mb-1 block text-xs font-bold text-neutral-500">
+                        <label className="label mb-2 block">
                           Nummer
                         </label>
 
@@ -266,25 +352,20 @@ export default async function Page() {
                           type="number"
                           min="0"
                           max="99"
-                          defaultValue={
-                            player.shirt_number
-                          }
+                          defaultValue={player.shirt_number}
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="mb-1 block text-xs font-bold text-neutral-500">
+                        <label className="label mb-2 block">
                           Position
                         </label>
 
                         <input
                           className="input w-full"
                           name="position"
-                          defaultValue={
-                            player.position ||
-                            ''
-                          }
+                          defaultValue={player.position || ''}
                         />
                       </div>
                     </div>
@@ -293,53 +374,92 @@ export default async function Page() {
                       GEM ÆNDRINGER
                     </button>
                   </form>
+                </section>
 
-                  {/* VIDEO */}
-                  <div className="mt-6 border-t border-white/10 pt-6">
-                    <PlayerVideoUploader
-                      playerId={
-                        player.id
-                      }
-                      playerName={`${player.first_name} ${player.last_name}`}
-                      currentVideoUrl={
-                        player.video_url
-                      }
-                    />
+                {/* VIDEO */}
+                <section className="border-t border-white/[0.07] pt-6">
+                  <div className="mb-4">
+                    <div className="text-[9px] font-black uppercase tracking-[.18em] text-red-400">
+                      Player Cam
+                    </div>
+
+                    <h3 className="mt-1 text-lg font-black">
+                      Loop-video
+                    </h3>
+
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">
+                      Upload eller udskift spillerens personlige loop-video.
+                      Når en video er sat på spilleren, bliver den automatisk
+                      brugt på spillerprofilen.
+                    </p>
                   </div>
 
-                  {/* FJERN */}
-                  <form
-                    action={
-                      removePlayer
-                    }
-                    className="mt-6 border-t border-white/10 pt-5"
-                  >
-                    <input
-                      type="hidden"
-                      name="id"
-                      value={
-                        player.id
-                      }
+                  <div className="rounded-[22px] border border-white/[0.08] bg-black/25 p-4">
+                    <PlayerVideoUploader
+                      playerId={player.id}
+                      playerName={`${player.first_name} ${player.last_name}`}
+                      currentVideoUrl={player.video_url}
                     />
+                  </div>
+                </section>
 
-                    <button className="rounded-xl border border-red-500/40 px-4 py-2.5 text-sm font-bold text-red-400 transition hover:bg-red-500/10">
-                      FJERN FRA TRUP
-                    </button>
-                  </form>
-                </div>
+                {/* REMOVE */}
+                <section className="border-t border-white/[0.07] pt-6">
+                  <div className="rounded-[20px] border border-red-500/15 bg-red-950/10 p-4">
+                    <div className="text-[9px] font-black uppercase tracking-[.18em] text-red-400">
+                      Farezone
+                    </div>
+
+                    <div className="mt-2 text-sm leading-6 text-neutral-400">
+                      Fjern spilleren fra den aktive trup. Spillerens historiske
+                      kampdata beholdes i systemet.
+                    </div>
+
+                    <form
+                      action={removePlayer}
+                      className="mt-4"
+                    >
+                      <input
+                        type="hidden"
+                        name="id"
+                        value={player.id}
+                      />
+
+                      <button
+                        className="
+                          rounded-xl
+                          border
+                          border-red-500/40
+                          px-4
+                          py-2.5
+                          text-sm
+                          font-black
+                          text-red-400
+                          transition
+                          hover:bg-red-500/10
+                        "
+                      >
+                        FJERN FRA TRUP
+                      </button>
+                    </form>
+                  </div>
+                </section>
               </div>
-            )
-          )}
+            </article>
+          ))}
 
           {!players?.length && (
             <div className="card p-8 text-center">
-              <div className="text-3xl">
+              <div className="text-4xl">
                 👕
               </div>
 
-              <div className="mt-3 font-black">
-                Ingen aktive
-                spillere
+              <div className="mt-4 text-xl font-black">
+                Ingen aktive spillere
+              </div>
+
+              <div className="mt-2 text-sm text-neutral-500">
+                Tilføj den første spiller ovenfor.
               </div>
             </div>
           )}
