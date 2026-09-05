@@ -9,13 +9,15 @@ export default async function MatchCard({
   m: Match
 }) {
   const state = getMatchState(
-  m.date,
-  m.kickoff_time,
-  m.status
-)
+    m.date,
+    m.kickoff_time,
+    m.status
+  )
 
   /*
    * HENT ALLE MÅL I KAMPEN
+   *
+   * Bruges kun til live-score.
    */
   const s = await createServerSupabase()
 
@@ -36,37 +38,81 @@ export default async function MatchCard({
   }
 
   /*
-   * BEREGN SCORE FRA MÅL-EVENTS
+   * LIVE-SCORE FRA MÅL-EVENTS
    */
-  const homeScore =
+  const liveHomeScore =
     goals?.filter(
       (goal: any) =>
         goal.team === 'home'
     ).length || 0
 
-  const awayScore =
+  const liveAwayScore =
     goals?.filter(
       (goal: any) =>
         goal.team === 'away'
     ).length || 0
 
   /*
+   * OFFICIELT RESULTAT
+   *
+   * Bruges til afsluttede kampe.
+   * Det er vigtigt for gamle DBU-kampe,
+   * hvor målscorerne måske ikke er
+   * efterregistreret endnu.
+   */
+  const officialHomeScore =
+    m.home_score !== null &&
+    m.home_score !== undefined
+      ? Number(m.home_score)
+      : null
+
+  const officialAwayScore =
+    m.away_score !== null &&
+    m.away_score !== undefined
+      ? Number(m.away_score)
+      : null
+
+  const isFinished =
+    String(m.status)
+      .trim()
+      .toLowerCase() === 'slut' ||
+    state.phase === 'Slut'
+
+  const isPostponed =
+    m.status === 'Udsat'
+
+  const isCancelled =
+    m.status === 'Aflyst'
+
+  /*
    * SCORE
    *
-   * Kommende kamp uden mål:
+   * Kommende:
    * vs
    *
-   * Live eller færdig:
-   * 0 – 0
-   * 1 – 0
-   * osv.
+   * Live:
+   * score fra events
+   *
+   * Slut:
+   * officiel score fra matches-tabellen
    */
-  const hasStarted =
-    state.phase !== 'Kommende'
+  let score = 'vs'
 
-  const score = hasStarted
-    ? `${homeScore} – ${awayScore}`
-    : 'vs'
+  if (
+    isFinished &&
+    officialHomeScore !== null &&
+    officialAwayScore !== null
+  ) {
+    score =
+      `${officialHomeScore} – ${officialAwayScore}`
+  } else if (
+    state.phase !== 'Kommende' &&
+    !isPostponed &&
+    !isCancelled
+  ) {
+    score =
+      `${liveHomeScore} – ${liveAwayScore}`
+  }
 
   /*
    * STATUS
@@ -74,35 +120,54 @@ export default async function MatchCard({
   let statusText = 'KOMMENDE'
 
   if (
-  state.phase === '1. halvleg' ||
-  state.phase === '2. halvleg'
-) {
-  statusText = `LIVE • ${state.minute}'`
-} else if (state.phase === 'Pause') {
-  statusText = 'PAUSE'
-} else if (state.phase === 'Overtid') {
-  statusText = `OVERTID • ${state.minute}'`
-} else if (state.phase === 'Slut') {
-  statusText = 'SLUT'
-} else {
-  statusText = 'KOMMENDE'
-}
+    state.phase === '1. halvleg' ||
+    state.phase === '2. halvleg'
+  ) {
+    statusText =
+      `LIVE • ${state.minute}'`
+  } else if (
+    state.phase === 'Pause'
+  ) {
+    statusText =
+      'PAUSE'
+  } else if (
+    state.phase === 'Overtid'
+  ) {
+    statusText =
+      `OVERTID • ${state.minute}'`
+  } else if (
+    state.phase === 'Slut'
+  ) {
+    statusText =
+      'SLUT'
+  } else {
+    statusText =
+      'KOMMENDE'
+  }
 
   /*
    * MANUELLE STATUSSER HAR PRIORITET
    */
   if (m.status === 'Udsat') {
-    statusText = 'UDSAT'
+    statusText =
+      'UDSAT'
   }
 
   if (m.status === 'Aflyst') {
-    statusText = 'AFLYST'
+    statusText =
+      'AFLYST'
+  }
+
+  if (isFinished) {
+    statusText =
+      'SLUT'
   }
 
   const isLive =
     state.isLive &&
-    m.status !== 'Udsat' &&
-    m.status !== 'Aflyst'
+    !isFinished &&
+    !isPostponed &&
+    !isCancelled
 
   return (
     <Link
