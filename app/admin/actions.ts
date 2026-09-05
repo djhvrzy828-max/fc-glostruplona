@@ -262,30 +262,133 @@ export async function createAnnouncement(
 ) {
   const { s, user } = await admin()
 
+  /*
+   * ==========================================
+   * HENT FELTER
+   * ==========================================
+   */
+
+  const title = String(
+    fd.get('title') || ''
+  ).trim()
+
+  const body = String(
+    fd.get('body') || ''
+  ).trim()
+
+  const type = String(
+    fd.get('type') ||
+      'Information'
+  ).trim()
+
+  /*
+   * expires_at kommer fra et
+   * datetime-local input på admin-siden.
+   *
+   * Hvis feltet er tomt, bliver meddelelsen
+   * stående indtil admin fjerner den.
+   */
+  const expiresAtRaw = String(
+    fd.get('expires_at') || ''
+  ).trim()
+
+  /*
+   * ==========================================
+   * VALIDERING
+   * ==========================================
+   */
+
+  if (!title) {
+    throw new Error(
+      'Meddelelsen skal have en titel'
+    )
+  }
+
+  if (!body) {
+    throw new Error(
+      'Meddelelsen skal have en tekst'
+    )
+  }
+
+  let expiresAt:
+    | string
+    | null = null
+
+  if (expiresAtRaw) {
+    const parsedDate =
+      new Date(expiresAtRaw)
+
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      throw new Error(
+        'Ugyldig udløbstid'
+      )
+    }
+
+    if (
+      parsedDate.getTime() <=
+      Date.now()
+    ) {
+      throw new Error(
+        'Udløbstiden skal være i fremtiden'
+      )
+    }
+
+    expiresAt =
+      parsedDate.toISOString()
+  }
+
+  /*
+   * ==========================================
+   * OPRET MEDDELELSE
+   * ==========================================
+   */
+
   const row = {
-    title: String(
-      fd.get('title')
-    ),
-
-    body: String(
-      fd.get('body')
-    ),
-
-    type: String(
-      fd.get('type') ||
-        'Information'
-    ),
+    title,
+    body,
+    type,
 
     active: true,
+
+    published_at:
+      new Date().toISOString(),
+
+    expires_at:
+      expiresAt,
+
+    removed_at:
+      null,
   }
 
-  const { error } = await s
+  const {
+    data: announcement,
+    error,
+  } = await s
     .from('announcements')
     .insert(row)
+    .select('id')
+    .single()
 
   if (error) {
-    throw error
+    console.error(
+      'CREATE ANNOUNCEMENT ERROR:',
+      error
+    )
+
+    throw new Error(
+      'Kunne ikke oprette meddelelsen'
+    )
   }
+
+  /*
+   * ==========================================
+   * AUDIT LOG
+   * ==========================================
+   */
 
   await s
     .from('audit_logs')
@@ -293,7 +396,130 @@ export async function createAnnouncement(
       admin_id: user.id,
 
       action:
-        `Oprettede meddelelse: ${row.title}`,
+        `Oprettede meddelelse: ${title}`,
+    })
+
+  /*
+   * ==========================================
+   * PUSH-NOTIFIKATION
+   *
+   * Meddelelsen er allerede gemt på dette
+   * tidspunkt. Derfor forsvinder den ikke,
+   * hvis push-tjenesten skulle fejle.
+   * ==========================================
+   */
+
+  try {
+    const pushTitle =
+      type
+        ? `📢 ${type}`
+        : '📢 NY MEDDELELSE'
+
+    await sendPushToAll({
+      title: pushTitle,
+
+      body:
+        `${title} — ${body}`,
+
+      url: '/',
+    })
+
+    console.log(
+      'ANNOUNCEMENT PUSH SENT:',
+      {
+        announcementId:
+          announcement.id,
+
+        title,
+      }
+    )
+  } catch (pushError) {
+    console.error(
+      'ANNOUNCEMENT PUSH ERROR:',
+      pushError
+    )
+  }
+
+  /*
+   * ==========================================
+   * OPDATER SIDER
+   * ==========================================
+   */
+
+  revalidatePath('/')
+
+  revalidatePath(
+    '/admin/meddelelser'
+  )
+}
+export async function removeAnnouncement(
+  fd: FormData
+) {
+  const { s, user } = await admin()
+
+  const id = String(
+    fd.get('id') || ''
+  ).trim()
+
+  if (!id) {
+    throw new Error(
+      'Meddelelses-ID mangler'
+    )
+  }
+
+  const {
+    data: announcement,
+    error: announcementError,
+  } = await s
+    .from('announcements')
+    .select(
+      'id,title'
+    )
+    .eq('id', id)
+    .single()
+
+  if (
+    announcementError ||
+    !announcement
+  ) {
+    console.error(
+      'REMOVE ANNOUNCEMENT GET ERROR:',
+      announcementError
+    )
+
+    throw new Error(
+      'Kunne ikke finde meddelelsen'
+    )
+  }
+
+  const {
+    error: updateError,
+  } = await s
+    .from('announcements')
+    .update({
+      active: false,
+      removed_at:
+        new Date().toISOString(),
+    })
+    .eq('id', id)
+
+  if (updateError) {
+    console.error(
+      'REMOVE ANNOUNCEMENT ERROR:',
+      updateError
+    )
+
+    throw new Error(
+      'Kunne ikke fjerne meddelelsen'
+    )
+  }
+
+  await s
+    .from('audit_logs')
+    .insert({
+      admin_id: user.id,
+      action:
+        `Fjernede meddelelse: ${announcement.title}`,
     })
 
   revalidatePath('/')
@@ -302,7 +528,6 @@ export async function createAnnouncement(
     '/admin/meddelelser'
   )
 }
-
 export async function createPlayer(
   fd: FormData
 ) {

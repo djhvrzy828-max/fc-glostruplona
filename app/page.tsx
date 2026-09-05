@@ -238,20 +238,50 @@ export default async function Home() {
         ) || []
     }
 
-    /*
-     * MEDDELELSE
-     */
-    const { data: a } = await s
-      .from('announcements')
-      .select('*')
-      .eq('active', true)
-      .order('created_at', {
-        ascending: false,
-      })
-      .limit(1)
-      .maybeSingle()
+   /*
+ * ==========================================
+ * MEDDELELSE
+ *
+ * Vis kun en meddelelse hvis:
+ *
+ * - active = true
+ * - den ikke er fjernet manuelt
+ * - den ikke er udløbet
+ *
+ * Hvis flere er aktive, vises den senest
+ * publicerede.
+ * ==========================================
+ */
 
-    announcement = a
+const now =
+  new Date().toISOString()
+
+const {
+  data: a,
+  error: announcementError,
+} = await s
+  .from('announcements')
+  .select('*')
+  .eq('active', true)
+  .is('removed_at', null)
+  .or(
+    `expires_at.is.null,expires_at.gt.${now}`
+  )
+  .order('published_at', {
+    ascending: false,
+    nullsFirst: false,
+  })
+  .limit(1)
+  .maybeSingle()
+
+if (announcementError) {
+  console.error(
+    'HOME ANNOUNCEMENT ERROR:',
+    announcementError
+  )
+}
+
+announcement = a
   } catch (error) {
     console.error(
       'HOME PAGE ERROR:',
