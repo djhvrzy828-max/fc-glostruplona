@@ -1,46 +1,79 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { sendPushToAll } from '@/lib/send-push'
+import {
+  NextRequest,
+  NextResponse,
+} from 'next/server'
 
-export const dynamic = 'force-dynamic'
+import {
+  createClient,
+} from '@supabase/supabase-js'
+
+import {
+  sendPushToAll,
+} from '@/lib/send-push'
+
+export const dynamic =
+  'force-dynamic'
 
 const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL!
+  process.env
+    .NEXT_PUBLIC_SUPABASE_URL!
 
 const serviceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env
+    .SUPABASE_SERVICE_ROLE_KEY!
 
-const supabase = createClient(
-  supabaseUrl,
-  serviceRoleKey,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  }
-)
+const supabase =
+  createClient(
+    supabaseUrl,
+    serviceRoleKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  )
+
+/*
+ * ==========================================
+ * DANSK TID
+ * ==========================================
+ */
 
 function getCopenhagenNow() {
-  const parts = new Intl.DateTimeFormat(
-    'en-CA',
-    {
-      timeZone: 'Europe/Copenhagen',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    }
-  ).formatToParts(new Date())
+  const parts =
+    new Intl.DateTimeFormat(
+      'en-CA',
+      {
+        timeZone:
+          'Europe/Copenhagen',
 
-  const values: Record<string, string> = {}
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
 
-  for (const part of parts) {
-    if (part.type !== 'literal') {
-      values[part.type] = part.value
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+
+        hourCycle: 'h23',
+      }
+    ).formatToParts(
+      new Date()
+    )
+
+  const values:
+    Record<string, string> =
+    {}
+
+  for (
+    const part of parts
+  ) {
+    if (
+      part.type !== 'literal'
+    ) {
+      values[part.type] =
+        part.value
     }
   }
 
@@ -49,26 +82,46 @@ function getCopenhagenNow() {
       `${values.year}-${values.month}-${values.day}`,
 
     hours:
-      Number(values.hour),
+      Number(
+        values.hour
+      ),
 
     minutes:
-      Number(values.minute),
+      Number(
+        values.minute
+      ),
 
     seconds:
-      Number(values.second),
+      Number(
+        values.second
+      ),
   }
 }
+
+/*
+ * ==========================================
+ * MINUTTER FRA KICKOFF
+ *
+ * -60 = 60 min til kamp
+ * -10 = 10 min til kamp
+ * 0   = kickoff
+ * 15  = 15 min spillet
+ * ==========================================
+ */
 
 function minutesSinceKickoff(
   kickoff: string
 ) {
-  const now = getCopenhagenNow()
+  const now =
+    getCopenhagenNow()
 
-  const [kickoffHour, kickoffMinute] =
-    kickoff
-      .slice(0, 5)
-      .split(':')
-      .map(Number)
+  const [
+    kickoffHour,
+    kickoffMinute,
+  ] = kickoff
+    .slice(0, 5)
+    .split(':')
+    .map(Number)
 
   const nowMinutes =
     now.hours * 60 +
@@ -78,32 +131,95 @@ function minutesSinceKickoff(
     kickoffHour * 60 +
     kickoffMinute
 
-  return nowMinutes - kickoffMinutes
+  return (
+    nowMinutes -
+    kickoffMinutes
+  )
 }
+
+/*
+ * ==========================================
+ * FORMAT KLOKKESLÆT
+ * ==========================================
+ */
+
+function formatKickoff(
+  kickoff:
+    | string
+    | null
+) {
+  if (!kickoff) {
+    return 'Tid ikke fastsat'
+  }
+
+  return kickoff.slice(
+    0,
+    5
+  )
+}
+
+/*
+ * ==========================================
+ * ER PUSH ALLEREDE SENDT?
+ * ==========================================
+ */
 
 async function alreadySent(
   matchId: string,
   type: string
 ) {
-  const { data } = await supabase
-    .from('match_notifications')
+  const {
+    data,
+    error,
+  } = await supabase
+    .from(
+      'match_notifications'
+    )
     .select('id')
-    .eq('match_id', matchId)
-    .eq('notification_type', type)
+    .eq(
+      'match_id',
+      matchId
+    )
+    .eq(
+      'notification_type',
+      type
+    )
     .maybeSingle()
+
+  if (error) {
+    console.error(
+      'CHECK NOTIFICATION ERROR:',
+      error
+    )
+
+    return false
+  }
 
   return Boolean(data)
 }
+
+/*
+ * ==========================================
+ * RESERVER PUSH
+ * ==========================================
+ */
 
 async function markAsSent(
   matchId: string,
   type: string
 ) {
-  const { error } = await supabase
-    .from('match_notifications')
+  const {
+    error,
+  } = await supabase
+    .from(
+      'match_notifications'
+    )
     .insert({
-      match_id: matchId,
-      notification_type: type,
+      match_id:
+        matchId,
+
+      notification_type:
+        type,
     })
 
   if (error) {
@@ -118,6 +234,12 @@ async function markAsSent(
   return true
 }
 
+/*
+ * ==========================================
+ * SCORE FRA EVENTS
+ * ==========================================
+ */
+
 async function getScore(
   matchId: string
 ) {
@@ -125,10 +247,18 @@ async function getScore(
     data: goals,
     error,
   } = await supabase
-    .from('match_events')
+    .from(
+      'match_events'
+    )
     .select('team')
-    .eq('match_id', matchId)
-    .eq('event_type', 'goal')
+    .eq(
+      'match_id',
+      matchId
+    )
+    .eq(
+      'event_type',
+      'goal'
+    )
 
   if (error) {
     console.error(
@@ -144,14 +274,16 @@ async function getScore(
 
   const homeScore =
     goals?.filter(
-      (goal) =>
-        goal.team === 'home'
+      (goal: any) =>
+        goal.team ===
+        'home'
     ).length || 0
 
   const awayScore =
     goals?.filter(
-      (goal) =>
-        goal.team === 'away'
+      (goal: any) =>
+        goal.team ===
+        'away'
     ).length || 0
 
   return {
@@ -159,6 +291,12 @@ async function getScore(
     awayScore,
   }
 }
+
+/*
+ * ==========================================
+ * SEND PUSH KUN ÉN GANG
+ * ==========================================
+ */
 
 async function sendOnce({
   matchId,
@@ -171,6 +309,9 @@ async function sendOnce({
   title: string
   body: string
 }) {
+  /*
+   * Allerede sendt?
+   */
   if (
     await alreadySent(
       matchId,
@@ -181,10 +322,11 @@ async function sendOnce({
   }
 
   /*
-   * Vi reserverer notifikationen først.
+   * Vi reserverer pushen først.
    *
-   * Unique constraint i databasen sørger for,
-   * at samme besked ikke bliver sendt flere gange.
+   * Det beskytter mod,
+   * at to cron-kald sender
+   * samme push samtidig.
    */
   const marked =
     await markAsSent(
@@ -200,7 +342,9 @@ async function sendOnce({
     await sendPushToAll({
       title,
       body,
-      url: `/kampe/${matchId}`,
+
+      url:
+        `/kampe/${matchId}`,
     })
 
     return true
@@ -211,13 +355,20 @@ async function sendOnce({
     )
 
     /*
-     * Hvis push fejler, sletter vi loggen,
-     * så cron kan prøve igen næste minut.
+     * Hvis push fejler helt,
+     * fjerner vi loggen.
+     *
+     * Så kan cron prøve igen.
      */
     await supabase
-      .from('match_notifications')
+      .from(
+        'match_notifications'
+      )
       .delete()
-      .eq('match_id', matchId)
+      .eq(
+        'match_id',
+        matchId
+      )
       .eq(
         'notification_type',
         type
@@ -227,11 +378,17 @@ async function sendOnce({
   }
 }
 
+/*
+ * ==========================================
+ * CRON
+ * ==========================================
+ */
+
 export async function POST(
   request: NextRequest
 ) {
   /*
-   * Beskyt endpointet med cron-secret.
+   * BESKYT ENDPOINT
    */
   const secret =
     request.headers.get(
@@ -239,13 +396,16 @@ export async function POST(
     )
 
   if (
-    !process.env.MATCH_CRON_SECRET ||
+    !process.env
+      .MATCH_CRON_SECRET ||
     secret !==
-      process.env.MATCH_CRON_SECRET
+      process.env
+        .MATCH_CRON_SECRET
   ) {
     return NextResponse.json(
       {
-        error: 'Unauthorized',
+        error:
+          'Unauthorized',
       },
       {
         status: 401,
@@ -257,11 +417,15 @@ export async function POST(
     getCopenhagenNow()
 
   /*
-   * Vi behøver kun dagens kampe.
+   * ==========================================
+   * DAGENS KAMPE
+   * ==========================================
    */
+
   const {
     data: matches,
-    error: matchesError,
+    error:
+      matchesError,
   } = await supabase
     .from('matches')
     .select(`
@@ -270,9 +434,14 @@ export async function POST(
       kickoff_time,
       home_team,
       away_team,
+      stadium,
+      competition,
       status
     `)
-    .eq('date', now.date)
+    .eq(
+      'date',
+      now.date
+    )
 
   if (matchesError) {
     console.error(
@@ -291,18 +460,31 @@ export async function POST(
     )
   }
 
-  let notificationsSent = 0
+  let notificationsSent =
+    0
 
-  for (const match of matches || []) {
+  const sentTypes:
+    string[] = []
+
+  for (
+    const match of
+    matches || []
+  ) {
     /*
-     * Vi springer kampe over, som ikke skal
-     * behandles automatisk.
+     * ======================================
+     * IGNORER KAMPE DER IKKE SKAL
+     * HAVE AUTOMATISKE PUSH
+     * ======================================
      */
+
     if (
       !match.kickoff_time ||
-      match.status === 'Aflyst' ||
-      match.status === 'Udsat' ||
-      match.status === 'Slut'
+      match.status ===
+        'Aflyst' ||
+      match.status ===
+        'Udsat' ||
+      match.status ===
+        'Slut'
     ) {
       continue
     }
@@ -312,85 +494,252 @@ export async function POST(
         match.kickoff_time
       )
 
+    const kickoffText =
+      formatKickoff(
+        match.kickoff_time
+      )
+
+    /*
+     * ======================================
+     * 🌅 KAMPDAG
+     *
+     * Fra kl. 10:00 dansk tid.
+     *
+     * Push sendes kun hvis kampen
+     * endnu ikke er startet.
+     *
+     * Notification type indeholder dato.
+     * Hvis DBU flytter kampen til en ny dag,
+     * kan der derfor komme en ny korrekt
+     * kampdags-push.
+     * ======================================
+     */
+
+    const afterTen =
+      now.hours > 10 ||
+      (
+        now.hours === 10 &&
+        now.minutes >= 0
+      )
+
+    if (
+      afterTen &&
+      elapsed < 0
+    ) {
+      const type =
+        `matchday_${match.date}`
+
+      const opponent =
+        match.home_team ===
+        'FC Glostruplona'
+          ? match.away_team
+          : match.home_team
+
+      const venueText =
+        match.stadium
+          ? ` • ${match.stadium}`
+          : ''
+
+      const sent =
+        await sendOnce({
+          matchId:
+            match.id,
+
+          type,
+
+          title:
+            '🔴 DET ER KAMPDAG!',
+
+          body:
+            `FC Glostruplona møder ${opponent} i dag kl. ${kickoffText}${venueText} ⚽`,
+        })
+
+      if (sent) {
+        notificationsSent++
+
+        sentTypes.push(
+          type
+        )
+      }
+    }
+
+    /*
+     * ======================================
+     * ⏰ 1 TIME TIL KAMPSTART
+     *
+     * Vi bruger et vindue fra:
+     *
+     * 60 min før
+     * til
+     * 45 min før
+     *
+     * Så selv hvis cron er et par minutter
+     * forsinket, mister vi ikke pushen.
+     *
+     * Notification type indeholder dato
+     * OG kickoff.
+     *
+     * Hvis DBU ændrer kickoff fra fx
+     * 19:30 → 20:00, kan den nye korrekte
+     * reminder derfor sendes.
+     * ======================================
+     */
+
+    if (
+      elapsed >= -60 &&
+      elapsed < -45
+    ) {
+      const safeKickoff =
+        kickoffText.replace(
+          ':',
+          ''
+        )
+
+      const type =
+        `one_hour_${match.date}_${safeKickoff}`
+
+      const venueText =
+        match.stadium
+          ? ` • ${match.stadium}`
+          : ''
+
+      const sent =
+        await sendOnce({
+          matchId:
+            match.id,
+
+          type,
+
+          title:
+            '⏰ 1 TIME TIL KAMPSTART',
+
+          body:
+            `${match.home_team} vs ${match.away_team} • ${kickoffText}${venueText}`,
+        })
+
+      if (sent) {
+        notificationsSent++
+
+        sentTypes.push(
+          type
+        )
+      }
+    }
+
+    /*
+     * ======================================
+     * SCORE
+     *
+     * Behøves til pause.
+     * ======================================
+     */
+
     const {
       homeScore,
       awayScore,
-    } = await getScore(match.id)
+    } = await getScore(
+      match.id
+    )
 
     const score =
       `${match.home_team} ${homeScore}–${awayScore} ${match.away_team}`
 
     /*
-     * KAMPSTART
-     *
-     * Sendes én gang, når kampen er startet.
-     *
-     * Vi begrænser vinduet til de første 30 minutter,
-     * så en gammel kamp ikke pludselig får
-     * en forsinket kampstart-notifikation.
+     * ======================================
+     * 🔴 KAMPSTART
+     * ======================================
      */
+
     if (
       elapsed >= 0 &&
       elapsed < 30
     ) {
       const sent =
         await sendOnce({
-          matchId: match.id,
-          type: 'kickoff',
+          matchId:
+            match.id,
+
+          type:
+            'kickoff',
+
           title:
             '🔴 KAMPSTART!',
+
           body:
             `${match.home_team} vs ${match.away_team} • Kampen er i gang! ⚽`,
         })
 
       if (sent) {
         notificationsSent++
+
+        sentTypes.push(
+          'kickoff'
+        )
       }
     }
 
     /*
-     * PAUSE
+     * ======================================
+     * ⏸️ PAUSE
      *
-     * 1. halvleg = 30 minutter.
-     * Pause-vinduet er minut 30-34.
+     * 1. halvleg = 30 minutter
+     * pause = ca. minut 30-34
+     * ======================================
      */
+
     if (
       elapsed >= 30 &&
       elapsed < 35
     ) {
       const sent =
         await sendOnce({
-          matchId: match.id,
-          type: 'halftime',
+          matchId:
+            match.id,
+
+          type:
+            'halftime',
+
           title:
             '⏸️ PAUSE',
+
           body:
             `${score} • Pause.`,
         })
 
       if (sent) {
         notificationsSent++
+
+        sentTypes.push(
+          'halftime'
+        )
       }
     }
 
     /*
-     * VIGTIGT:
+     * ======================================
+     * IKKE AUTOMATISK SLUT
      *
-     * DER ER IKKE LÆNGERE AUTOMATISK SLUT.
+     * Kampen fortsætter som
+     * live/overtid efter ordinær tid.
      *
-     * Efter ordinær tid fortsætter kampen
-     * som live/overtid i appen.
+     * SLUT bliver kun sendt,
+     * når admin trykker:
      *
-     * Slutnotifikationen sendes KUN når admin
-     * trykker "AFSLUT KAMP".
+     * AFSLUT KAMP
+     * ======================================
      */
   }
 
   return NextResponse.json({
     success: true,
+
     checked:
       matches?.length || 0,
+
     notificationsSent,
+
+    sentTypes,
+
     time: now,
   })
 }

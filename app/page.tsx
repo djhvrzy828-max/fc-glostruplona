@@ -874,36 +874,36 @@ announcement = a
         </div>
 
         <div className="grid grid-cols-3 gap-2 sm:gap-4">
-          <div className="card min-w-0 p-3 sm:p-6">
-            <div className="text-[10px] text-neutral-400 sm:text-sm">
-              Hjemmebane
-            </div>
+  <div className="card min-w-0 p-3 sm:p-6">
+    <div className="text-[10px] text-neutral-400 sm:text-sm">
+      Hjemmebane
+    </div>
 
-            <div className="mt-1 truncate text-sm font-black sm:mt-2 sm:text-2xl">
-              Glostrup Nou
-            </div>
-          </div>
+    <div className="mt-1 truncate text-sm font-black sm:mt-2 sm:text-2xl">
+      Glostrup Nou
+    </div>
+  </div>
 
-          <div className="card min-w-0 p-3 sm:p-6">
-            <div className="text-[10px] text-neutral-400 sm:text-sm">
-              Liga
-            </div>
+  <div className="card min-w-0 p-3 sm:p-6">
+    <div className="text-[10px] text-neutral-400 sm:text-sm">
+      Række
+    </div>
 
-            <div className="mt-1 truncate text-sm font-black sm:mt-2 sm:text-2xl">
-              9. division
-            </div>
-          </div>
+    <div className="mt-1 truncate text-sm font-black sm:mt-2 sm:text-2xl">
+      Mesterrækken
+    </div>
+  </div>
 
-          <div className="card min-w-0 p-3 sm:p-6">
-            <div className="text-[10px] text-neutral-400 sm:text-sm">
-              Stiftet
-            </div>
+  <div className="card min-w-0 p-3 sm:p-6">
+    <div className="text-[10px] text-neutral-400 sm:text-sm">
+      Stiftet
+    </div>
 
-            <div className="mt-1 text-sm font-black sm:mt-2 sm:text-2xl">
-              1142
-            </div>
-          </div>
-        </div>
+    <div className="mt-1 text-sm font-black sm:mt-2 sm:text-2xl">
+      2025
+    </div>
+  </div>
+</div>
       </section>
     </div>
   )

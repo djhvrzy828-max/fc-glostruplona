@@ -7,6 +7,10 @@ import {
   createClient,
 } from '@supabase/supabase-js'
 
+import {
+  sendPushToAll,
+} from '@/lib/send-push'
+
 export const dynamic =
   'force-dynamic'
 
@@ -451,6 +455,91 @@ async function findExistingMatch(
  * ==========================================
  */
 
+function formatDanishDate(
+  date: string
+) {
+  const parsed =
+    new Date(
+      `${date}T12:00:00`
+    )
+
+  return new Intl.DateTimeFormat(
+    'da-DK',
+    {
+      timeZone:
+        'Europe/Copenhagen',
+      day: 'numeric',
+      month: 'long',
+    }
+  ).format(parsed)
+}
+
+function isFutureOrToday(
+  date: string
+) {
+  const nowParts =
+    new Intl.DateTimeFormat(
+      'en-CA',
+      {
+        timeZone:
+          'Europe/Copenhagen',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }
+    ).formatToParts(
+      new Date()
+    )
+
+  const values:
+    Record<string, string> =
+    {}
+
+  for (
+    const part of nowParts
+  ) {
+    if (
+      part.type !== 'literal'
+    ) {
+      values[part.type] =
+        part.value
+    }
+  }
+
+  const today =
+    `${values.year}-${values.month}-${values.day}`
+
+  return date >= today
+}
+
+async function sendDbuPush({
+  title,
+  body,
+  matchId,
+}: {
+  title: string
+  body: string
+  matchId: string
+}) {
+  try {
+    await sendPushToAll({
+      title,
+      body,
+      url:
+        `/kampe/${matchId}`,
+    })
+
+    return true
+  } catch (error) {
+    console.error(
+      'DBU PUSH ERROR:',
+      error
+    )
+
+    return false
+  }
+}
+
 async function runSync() {
   const response =
     await fetch(
@@ -516,8 +605,8 @@ async function runSync() {
      */
     if (!existing) {
       const {
-        error:
-          insertError,
+        data: createdMatch,
+        error: insertError,
       } = await supabase
         .from('matches')
         .insert({
@@ -544,7 +633,7 @@ async function runSync() {
             dbuMatch.stadium,
 
           competition:
-            '9. divisionen',
+            'Mesterrækken',
 
           status:
             dbuMatch.finished
@@ -559,8 +648,13 @@ async function runSync() {
             dbuMatch.awayScore ??
             0,
         })
+        .select('id')
+        .single()
 
-      if (insertError) {
+      if (
+        insertError ||
+        !createdMatch
+      ) {
         console.error(
           'DBU INSERT ERROR:',
           dbuMatch,
@@ -571,6 +665,44 @@ async function runSync() {
       }
 
       created++
+
+      /*
+       * NY KAMP PUSH
+       *
+       * Kun kommende kampe.
+       * Gamle afsluttede kampe skal ikke
+       * give brugerne en "ny kamp"-push.
+       */
+      let pushSent = false
+
+      if (
+        !dbuMatch.finished &&
+        isFutureOrToday(
+          dbuMatch.date
+        )
+      ) {
+        const dateText =
+          formatDanishDate(
+            dbuMatch.date
+          )
+
+        const kickoffText =
+          dbuMatch.kickoffTime
+            ? ` kl. ${dbuMatch.kickoffTime}`
+            : ''
+
+        pushSent =
+          await sendDbuPush({
+            title:
+              '📅 NY KAMP!',
+
+            body:
+              `${dbuMatch.homeTeam} vs ${dbuMatch.awayTeam} • ${dateText}${kickoffText}`,
+
+            matchId:
+              createdMatch.id,
+          })
+      }
 
       changes.push({
         type:
@@ -591,6 +723,8 @@ async function runSync() {
           dbuMatch.finished
             ? `${dbuMatch.homeScore}-${dbuMatch.awayScore}`
             : null,
+
+        pushSent,
       })
 
       continue
@@ -750,11 +884,92 @@ async function runSync() {
       continue
     }
 
+    /*
+     * ======================================
+     * KAMPÆNDRINGS-PUSH
+     *
+     * Én samlet push hvis DBU ændrer:
+     * - dato
+     * - kickoff
+     * - stadion
+     *
+     * Resultatændringer alene giver ikke push.
+     * ======================================
+     */
+
+    const dateChanged =
+      existing.date !==
+      dbuMatch.date
+
+    const kickoffChanged =
+      oldKickoff !==
+      dbuMatch.kickoffTime
+
+    const stadiumChanged =
+      (existing.stadium ||
+        null) !==
+      (dbuMatch.stadium ||
+        null)
+
+    const relevantChanges:
+      string[] = []
+
+    if (dateChanged) {
+      relevantChanges.push(
+        `Ny dato: ${formatDanishDate(
+          dbuMatch.date
+        )}`
+      )
+    }
+
+    if (kickoffChanged) {
+      relevantChanges.push(
+        dbuMatch.kickoffTime
+          ? `Ny tid: ${dbuMatch.kickoffTime}`
+          : 'Nyt tidspunkt er endnu ikke fastsat'
+      )
+    }
+
+    if (stadiumChanged) {
+      relevantChanges.push(
+        dbuMatch.stadium
+          ? `Ny bane: ${dbuMatch.stadium}`
+          : 'Ny bane er endnu ikke fastsat'
+      )
+    }
+
+    let changePushSent = false
+
+    if (
+      relevantChanges.length > 0 &&
+      !dbuMatch.finished &&
+      isFutureOrToday(
+        dbuMatch.date
+      )
+    ) {
+      changePushSent =
+        await sendDbuPush({
+          title:
+            '⚠️ KAMP ÆNDRET',
+
+          body:
+            `${dbuMatch.homeTeam} vs ${dbuMatch.awayTeam} • ${relevantChanges.join(
+              ' • '
+            )}`,
+
+          matchId:
+            existing.id,
+        })
+    }
+
     updated++
 
     changes.push({
       type:
         'updated',
+
+      pushSent:
+        changePushSent,
 
       dbuMatchId:
         dbuMatch.dbuMatchId,

@@ -3,7 +3,7 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { getMatchState } from '@/lib/match-time'
 import LineupEditor from '@/components/LineupEditor'
 import DeleteMatchButton from '@/components/DeleteMatchButton'
-
+import { sendPushToAll } from '@/lib/send-push'
 import {
   createMatch,
   updateMatch,
@@ -102,6 +102,32 @@ async function saveMatchLineup(
     return
   }
 
+  /*
+   * TJEK OM DER ALLEREDE ER ET HOLDKORT
+   *
+   * Hvis der allerede findes spillere i
+   * match_lineups, er dette kun en redigering.
+   */
+  const {
+    data: existingLineup,
+    error: existingLineupError,
+  } = await s
+    .from('match_lineups')
+    .select('id')
+    .eq('match_id', matchId)
+    .limit(1)
+
+  if (existingLineupError) {
+    console.error(
+      'CHECK EXISTING LINEUP ERROR:',
+      existingLineupError
+    )
+  }
+
+  const isFirstLineup =
+    !existingLineup ||
+    existingLineup.length === 0
+
   const lineupRows = []
 
   for (
@@ -195,6 +221,62 @@ async function saveMatchLineup(
         insertLineupError
       )
       return
+    }
+  }
+
+  /*
+   * SEND PUSH KUN FØRSTE GANG
+   * DER GEMMES ET RIGTIGT HOLDKORT
+   */
+  if (
+    isFirstLineup &&
+    lineupRows.length > 0
+  ) {
+    try {
+      const {
+        data: match,
+        error: matchError,
+      } = await s
+        .from('matches')
+        .select(
+          'home_team, away_team'
+        )
+        .eq('id', matchId)
+        .single()
+
+      if (matchError) {
+        console.error(
+          'LINEUP MATCH ERROR:',
+          matchError
+        )
+      }
+
+      if (match) {
+        await sendPushToAll({
+          title:
+            '📋 HOLDKORTET ER KLAR!',
+
+          body:
+            `Startopstillingen til ${match.home_team} vs ${match.away_team} er nu offentliggjort.`,
+
+          url:
+            `/kampe/${matchId}`,
+        })
+
+        console.log(
+          'LINEUP PUSH SENT:',
+          matchId
+        )
+      }
+    } catch (pushError) {
+      /*
+       * Holdkortet skal stadig gemmes,
+       * selv hvis push fejler.
+       */
+      console.error(
+        'LINEUP PUSH ERROR:',
+        pushError
+      )
     }
   }
 
