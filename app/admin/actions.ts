@@ -3,6 +3,7 @@
 import { createServerSupabase } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { sendPushToAll } from '@/lib/send-push'
+import { getMatchState } from '@/lib/match-time'
 
 async function admin() {
   const s = await createServerSupabase()
@@ -26,6 +27,28 @@ async function admin() {
   }
 
   return { s, user }
+}
+
+function getCopenhagenDate() {
+  const parts = new Intl.DateTimeFormat(
+    'en-CA',
+    {
+      timeZone: 'Europe/Copenhagen',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }
+  ).formatToParts(new Date())
+
+  const values: Record<string, string> = {}
+
+  for (const part of parts) {
+    if (part.type !== 'literal') {
+      values[part.type] = part.value
+    }
+  }
+
+  return `${values.year}-${values.month}-${values.day}`
 }
 
 async function syncMatchScore(
@@ -1007,6 +1030,40 @@ export async function createMatchEvent(
     )
   }
 
+  /*
+   * Hent kampen før eventet gemmes.
+   *
+   * Vi bruger status/dato/tid til at afgøre,
+   * om dette er en rigtig LIVE-hændelse eller
+   * bare efterregistrering fra en gammel kamp.
+   */
+  const {
+    data: match,
+    error: matchError,
+  } = await s
+    .from('matches')
+    .select(`
+      id,
+      home_team,
+      away_team,
+      date,
+      kickoff_time,
+      status
+    `)
+    .eq('id', match_id)
+    .single()
+
+  if (matchError || !match) {
+    console.error(
+      'CREATE EVENT MATCH ERROR:',
+      matchError
+    )
+
+    throw new Error(
+      'Kunne ikke finde kampen'
+    )
+  }
+
   const row = {
     match_id,
     event_type,
@@ -1050,6 +1107,14 @@ export async function createMatchEvent(
         `Registrerede ${event_type} i kamp ${match_id} (${minute}')`,
     })
 
+  const normalizedStatus =
+    String(match.status || '')
+      .trim()
+      .toLowerCase()
+
+  const isFinishedMatch =
+    normalizedStatus === 'slut'
+
   let syncedScore:
     | {
         homeScore: number
@@ -1057,8 +1122,17 @@ export async function createMatchEvent(
       }
     | undefined
 
+  /*
+   * LIVE/kommende kamp:
+   * score i matches følger mål-events.
+   *
+   * GAMMEL FÆRDIG KAMP:
+   * behold DBU/slutresultatet i matches.
+   * Mål-events bruges kun til spillerstatistik.
+   */
   if (
-    event_type === 'goal'
+    event_type === 'goal' &&
+    !isFinishedMatch
   ) {
     syncedScore =
       await syncMatchScore(
@@ -1067,62 +1141,60 @@ export async function createMatchEvent(
       )
   }
 
+  /*
+   * MÅL-PUSH SENDES KUN HVIS KAMPEN
+   * FAKTISK ER LIVE LIGE NU.
+   *
+   * Efterregistrering på gamle kampe giver
+   * derfor aldrig en målnotifikation.
+   */
   if (
     event_type === 'goal'
   ) {
-    try {
-      const {
-        data: match,
-        error: matchError,
-      } = await s
-        .from('matches')
-        .select(
-          'id, home_team, away_team'
-        )
-        .eq(
-          'id',
-          match_id
-        )
-        .single()
+    const state = getMatchState(
+      match.date,
+      match.kickoff_time,
+      match.status
+    )
 
-      if (matchError) {
-        console.error(
-          'PUSH MATCH ERROR:',
-          matchError
-        )
-      }
+    const shouldSendGoalPush =
+      state.isLive &&
+      match.status !== 'Udsat' &&
+      match.status !== 'Aflyst' &&
+      match.status !== 'Slut'
 
-      let scorerName = ''
+    if (shouldSendGoalPush) {
+      try {
+        let scorerName = ''
 
-      if (player_id) {
-        const {
-          data: player,
-          error: playerError,
-        } = await s
-          .from('players')
-          .select(
-            'first_name, last_name'
-          )
-          .eq(
-            'id',
-            player_id
-          )
-          .single()
+        if (player_id) {
+          const {
+            data: player,
+            error: playerError,
+          } = await s
+            .from('players')
+            .select(
+              'first_name, last_name'
+            )
+            .eq(
+              'id',
+              player_id
+            )
+            .single()
 
-        if (playerError) {
-          console.error(
-            'PUSH PLAYER ERROR:',
-            playerError
-          )
+          if (playerError) {
+            console.error(
+              'PUSH PLAYER ERROR:',
+              playerError
+            )
+          }
+
+          if (player) {
+            scorerName =
+              `${player.first_name} ${player.last_name}`
+          }
         }
 
-        if (player) {
-          scorerName =
-            `${player.first_name} ${player.last_name}`
-        }
-      }
-
-      if (match) {
         const scoringTeam =
           team === 'home'
             ? match.home_team
@@ -1183,13 +1255,22 @@ export async function createMatchEvent(
             pushError
           )
         }
-      }
-    } catch (
-      pushSetupError
-    ) {
-      console.error(
-        'GOAL PUSH SETUP ERROR:',
+      } catch (
         pushSetupError
+      ) {
+        console.error(
+          'GOAL PUSH SETUP ERROR:',
+          pushSetupError
+        )
+      }
+    } else {
+      console.log(
+        'GOAL PUSH SKIPPED - NOT LIVE:',
+        {
+          matchId: match_id,
+          status: match.status,
+          date: match.date,
+        }
       )
     }
   }
@@ -1320,14 +1401,44 @@ export async function deleteMatchEvent(
     )
   }
 
+  /*
+   * Hvis det er en færdig kamp, bevarer vi
+   * det officielle slutresultat fra matches.
+   *
+   * På live/ikke-færdige kampe beregnes
+   * scoren fortsat fra mål-events.
+   */
   if (
     existingEvent?.event_type ===
     'goal'
   ) {
-    await syncMatchScore(
-      s,
-      match_id
-    )
+    const {
+      data: match,
+      error: matchError,
+    } = await s
+      .from('matches')
+      .select('status')
+      .eq('id', match_id)
+      .single()
+
+    if (matchError) {
+      console.error(
+        'DELETE EVENT MATCH ERROR:',
+        matchError
+      )
+    }
+
+    if (
+      match &&
+      String(match.status)
+        .trim()
+        .toLowerCase() !== 'slut'
+    ) {
+      await syncMatchScore(
+        s,
+        match_id
+      )
+    }
   }
 
   await s
@@ -1348,7 +1459,9 @@ export async function deleteMatchEvent(
   revalidatePath(
     `/kampe/${match_id}`
   )
-} export async function finishMatch(
+}
+
+export async function finishMatch(
   fd: FormData
 ) {
   const { s, user } = await admin()
@@ -1519,7 +1632,9 @@ export async function setManOfTheMatch(
     .select(`
       id,
       home_team,
-      away_team
+      away_team,
+      date,
+      status
     `)
     .eq('id', matchId)
     .single()
@@ -1622,41 +1737,61 @@ export async function setManOfTheMatch(
     })
 
   /*
-   * SEND PUSH HVER GANG ADMIN TRYKKER GEM
+   * MOTM PUSH
+   *
+   * Send kun push for en kamp, der er spillet
+   * I DAG (dansk tid).
+   *
+   * Så kan gamle kampe efterregistreres uden
+   * at sende gamle MOTM-notifikationer.
    */
-  try {
-    const title =
-      '⭐ MAN OF THE MATCH'
+  const isToday =
+    match.date ===
+    getCopenhagenDate()
 
-    const body =
-      `#${player.shirt_number} ${playerName} er valgt som kampens spiller efter ${match.home_team} vs ${match.away_team}.`
+  if (isToday) {
+    try {
+      const title =
+        '⭐ MAN OF THE MATCH'
 
+      const body =
+        `#${player.shirt_number} ${playerName} er valgt som kampens spiller efter ${match.home_team} vs ${match.away_team}.`
+
+      console.log(
+        'SENDER MOTM PUSH:',
+        {
+          matchId,
+          playerId,
+          title,
+          body,
+        }
+      )
+
+      const pushResult =
+        await sendPushToAll({
+          title,
+          body,
+          url:
+            `/kampe/${matchId}`,
+        })
+
+      console.log(
+        'MOTM PUSH RESULT:',
+        pushResult
+      )
+    } catch (pushError) {
+      console.error(
+        'MOTM PUSH ERROR:',
+        pushError
+      )
+    }
+  } else {
     console.log(
-      'SENDER MOTM PUSH:',
+      'MOTM PUSH SKIPPED - OLD MATCH:',
       {
         matchId,
-        playerId,
-        title,
-        body,
+        matchDate: match.date,
       }
-    )
-
-    const pushResult =
-      await sendPushToAll({
-        title,
-        body,
-        url:
-          `/kampe/${matchId}`,
-      })
-
-    console.log(
-      'MOTM PUSH RESULT:',
-      pushResult
-    )
-  } catch (pushError) {
-    console.error(
-      'MOTM PUSH ERROR:',
-      pushError
     )
   }
 
